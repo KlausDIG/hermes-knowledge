@@ -184,3 +184,8 @@
 [2026-05-10 23:38:26] ⚠️ Push fehlgeschlagen: fatal: konnte nicht auf 'https://github.com/KlausDIG/hermes-knowledge.git/' zugreifen: Could not resolve host: github.com
 [2026-05-10 23:38:26] === ✅ Sync Abgeschlossen ===
 
+[2026-05-11 00:00:11] === 🔄 Hermes Knowledge Sync Start ===
+[2026-05-11 00:00:12] 📄 Skill: engineering/ecad-pdf-analyzer/SKILL.md
+[2026-05-11 00:00:12] 📄 Skill: devops/nextcloud-rclone-cloud-first/SKILL.md
+[2026-05-11 00:00:12] 📜 Script: setup-nextcloud.sh
+[2026-05-11 00:00:12] 📜 Script: setup-nextcloud.py
