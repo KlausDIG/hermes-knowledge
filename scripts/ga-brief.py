@@ -14,32 +14,27 @@ CREDS_FILE = HOME / ".config/din5008-oauth/credentials.json"
 def get_google_creds():
     """Holt Google OAuth Credentials"""
     
-    # Versuche OAuth2
+    TOKEN_DIR = HOME / ".config/din5008-oauth"
+    TOKEN_FILE = TOKEN_DIR / "token.json"
+    
+    # 1. OAuth Playground Token (einfachst)
     if TOKEN_FILE.exists():
         try:
+            token_text = TOKEN_FILE.read_text().strip()
+            # Prüfe ob es ein Bearer Token ist (kein JSON)
+            if not token_text.startswith('{'):
+                return {'token': token_text, 'type': 'oauth_playground'}
+            
+            # JSON Token (OAuth2)
             from google.oauth2.credentials import Credentials
-            from googleapiclient.discovery import build
-            
-            creds = Credentials.from_authorized_user_file(
-                str(TOKEN_FILE),
-                ['https://www.googleapis.com/auth/documents']
-            )
-            
+            creds = Credentials.from_authorized_user_file(str(TOKEN_FILE))
             if creds.valid:
-                return creds
-            
-            # Refresh wenn nötig
-            if creds.expired and creds.refresh_token:
-                from google.auth.transport.requests import Request
-                creds.refresh(Request())
-                # Speichere erneuerten Token
-                TOKEN_FILE.write_text(creds.to_json())
-                return creds
-                
-        except Exception as e:
-            print(f"⚠️ OAuth-Fehler: {e}")
+                return {'token': creds.token, 'type': 'oauth2'}
+            return None
+        except Exception:
+            pass
     
-    # Fallback: Service Account
+    # 2. Service Account
     sa_file = HOME / ".config/gcloud/din5008-service-account.json"
     if sa_file.exists():
         try:
@@ -48,9 +43,11 @@ def get_google_creds():
                 str(sa_file),
                 scopes=['https://www.googleapis.com/auth/documents']
             )
-            return creds
-        except Exception as e:
-            print(f"⚠️ Service Account Fehler: {e}")
+            # Konvertiere zu Dict
+            from googleapiclient.discovery import build
+            return {'service': build('docs', 'v1', credentials=creds), 'type': 'service'}
+        except Exception:
+            pass
     
     return None
 
@@ -82,20 +79,55 @@ def create_din5008_brief(**kwargs):
         'position': 'Geschäftsführer',
         'anlagen': ['Angebot_001.pdf'],
     }
-    defaults.update(kwargs)
-    
-    # Google API verbinden
-    creds = get_google_creds()
-    if not creds:
-        print("❌ Keine Google Credentials gefunden")
-        print("   Optionen:")
-        print("   a) OAuth: python3 ~/Developer/scripts/setup-google-workspace.py")
-        print("   b) Service Account: Google Cloud Console → JSON Key download")
-        return None
-    
     from googleapiclient.discovery import build
     
-    docs = build('docs', 'v1', credentials=creds)
+    cred_info = get_google_creds()
+    if not cred_info:
+        print("❌ Keine Google API Credentials gefunden")
+        print("\nSetup:")
+        print("  a) OAuth2: python3 ~/Developer/scripts/setup-google-workspace.py")
+        print("  b) Playground:")
+        print("     1. https://developers.google.com/oauthplayground")
+        print("     2. Autorisiere Docs API")
+        print("     3. Kopiere Access Token")
+        print("     4. nano ~/.config/din5008-oauth/token.json")
+        print("  c) Service Account: Google Cloud Console → JSON Key")
+        return None
+    
+    # Verbindung aufbauen je nach Type
+    if cred_info.get('type') == 'oauth_playground':
+        # Eigenes Request mit Bearer Token
+        import urllib.request
+        token = cred_info['token']
+        
+        # Direct requests statt Google Client Library
+        # Aber wir nutzen trotzdem build() mit dem Token als api_key Ersatz
+        # Workaround: Custom HTTP
+        from googleapiclient.discovery import build, _auth
+        from google.auth.credentials import Credentials as GenericCredentials
+        
+        class BearerTokenAuth(GenericCredentials):
+            def __init__(self, token):
+                super().__init__()
+                self._token = token
+            def refresh(self, request):
+                pass
+            def apply(self, headers, token=None):
+                headers['Authorization'] = f'Bearer {self._token}'
+        
+        creds = BearerTokenAuth(token)
+        docs = build('docs', 'v1', credentials=creds)
+        
+    elif cred_info.get('type') == 'oauth2':
+        from google.oauth2.credentials import Credentials
+        creds = Credentials(token=cred_info['token'])
+        docs = build('docs', 'v1', credentials=creds)
+        
+    elif cred_info.get('type') == 'service':
+        docs = cred_info['service']
+    else:
+        print("⚠️ Unbekannter Credential Type")
+        return None
     
     # Dokument erstellen
     doc = docs.documents().create(body={

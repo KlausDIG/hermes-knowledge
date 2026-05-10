@@ -80,9 +80,107 @@ Erstelle professionelle Geschäftsunterlagen nach DIN 5008 Norm:
 
 ---
 
-## 2. Google Docs API Setup
+## 2. Erstellungsmethoden
 
-### 2.1 Google Cloud Console
+### 2.1 Präferierte Methode: Lokale HTML (kein Google Account nötig)
+
+> ✅ **Empfohlen** – funktioniert sofort ohne Cloud-Setup, ohne Auth, ohne API-Keys.
+
+```python
+#!/usr/bin/env python3
+"""DIN 5008 Brief als HTML (A4-konform, druckfertig)"""
+from pathlib import Path
+from datetime import datetime
+
+OUTPUT = Path.home() / "Documents/DIN5008_Output"
+OUTPUT.mkdir(parents=True, exist_ok=True)
+
+def brief_html(absender_firma="KlausDIG Services", absender_strasse="Musterstraße 1",
+               absender_plz="12345", absender_ort="Musterstadt", empfaenger_name="",
+               empfaenger_strasse="", empfaenger_plz="", empfaenger_ort="",
+               betreff="", text="", datum=None, anlagen=None):
+    if datum is None:
+        datum = datetime.now().strftime("%d. %B %Y")
+    anlagen = anlagen or []
+    anlagen_html = "\n".join(f"<li>{a}</li>" for a in anlagen)
+    h = f"""
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>DIN 5008 Brief</title>
+<style>
+@page {{ size: A4; margin: 20mm 25mm; }}
+* {{ box-sizing: border-box; margin: 0; padding: 0; }}
+body {{
+    font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.15;
+    color: #333; max-width: 210mm; margin: 0 auto; padding: 20mm 25mm;
+}}
+.absender {{ font-size: 9pt; line-height: 1.3; margin-bottom: 8mm; height: 27mm; }}
+.fenster {{ width: 80mm; margin-bottom: 8mm; line-height: 1.5; min-height: 40mm; }}
+.bezugs {{ text-align: left; margin-left: 90mm; margin-bottom: 8mm; font-size: 9pt; }}
+.betreff {{ font-size: 11pt; font-weight: bold; margin: 8mm 0 11pt; }}
+.anrede {{ font-size: 11pt; margin-bottom: 11pt; }}
+.brieftext {{ font-size: 11pt; line-height: 1.15; margin-bottom: 11pt; text-align: justify; }}
+.brieftext p {{ margin-bottom: 11pt; }}
+.gruss {{ font-size: 11pt; margin-top: 11pt; margin-bottom: 22pt; }}
+.unterschrift {{ font-size: 11pt; margin-top: 8mm; }}
+.anlagen {{ font-size: 9pt; margin-top: 8mm; border-top: 1px solid #ccc; padding-top: 4mm; }}
+.anlagen li {{ margin-left: 15px; margin-bottom: 2pt; }}
+.print-btn {{ position: fixed; top: 20px; right: 20px; padding: 12px 24px;
+    background: #0066cc; color: white; border: none; border-radius: 4px; font-size: 14pt;
+    cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }}
+.print-btn:hover {{ background: #0052a3; }}
+@media print {{ body {{ padding: 0; max-width: none; }} .no-print {{ display: none; }} }}
+</style>
+</head>
+<body>
+<button class="print-btn no-print" onclick="window.print()">🖨️ Drucken / PDF</button>
+<div class="absender">{absender_firma}<br>{absender_strasse}<br>{absender_plz} {absender_ort}</div>
+<div class="fenster">{empfaenger_name}<br>{empfaenger_strasse}<br>{empfaenger_plz} {empfaenger_ort}</div>
+<div style="height:21mm;"></div>
+<div class="bezugs">
+<table><tr><td>Ihr Zeichen:</td><td>---</td></tr>
+<tr><td>Unser Zeichen:</td><td>KH-{datetime.now().year}-001</td></tr>
+<tr><td>Datum:</td><td>{datum}</td></tr></table>
+</div>
+<div style="height:8mm;"></div>
+<div class="betreff">{betreff}</div>
+<div class="anrede">Sehr geehrte Damen und Herren,</div>
+<div class="brieftext">{text.replace(chr(10), "</p><p>")}</div>
+<div class="gruss">Mit freundlichen Grüßen</div>
+<div style="height:15mm;"></div>
+<div class="unterschrift"><strong>Klaus Dreisbusch</strong><br>Geschäftsführer</div>
+<div class="anlagen"><strong>Anlagen:</strong><ul>{anlagen_html}</ul></div>
+</body>
+</html>
+"""
+    fp = OUTPUT / f"Brief_{datetime.now():%Y%m%d_%H%M}.html"
+    fp.write_text(h, encoding="utf-8")
+    print(f"✅ {fp}")
+    import subprocess
+    subprocess.run(["xdg-open", str(fp)], capture_output=True)
+    return fp
+
+if __name__ == "__main__":
+    brief_html(empfaenger_name="Frau M. Mustermann", empfaenger_strasse="Bsp. 42",
+               empfaenger_plz="54321", empfaenger_ort="Bsp-Stadt",
+               betreff="Angebot", text="Vielen Dank für Ihre Anfrage.\n\nGerne unterbreiten wir Ihnen folgendes Angebot.")
+```
+
+**Nutzung:**
+```bash
+python3 brief_html.py
+# → Öffnet Browser mit Druck-Button → Strg+P → "Als PDF speichern"
+```
+
+**Vorteile:** Kein Google-Account, keine API, offline, sofort nutzbar, DIN-5008-A4-Layout mit `@page`.
+
+---
+
+### 2.2 Google Docs API (optional, wenn Cloud nötig)
+
+⚠️ **Pitfall:** Service-Account-Setup und OAuth-Playground können in manchen Umgebungen blockiert sein (Firmen-Firewall, fehlende Browser-Integration). Wenn der Google-Flow nicht klappt, sofort auf Methode 2.1 (HTML) zurückfallen.
 
 ```bash
 # 1. Google Cloud Console öffnen
@@ -92,22 +190,7 @@ xdg-open https://console.cloud.google.com/
 # 3. Google Docs API aktivieren
 # 4. Google Sheets API aktivieren
 # 5. Service Account erstellen
-# 6. JSON Key herunterladen → ~/credentials/din5008-service-account.json
-```
-
-### 2.2 Lokale Einrichtung
-
-```bash
-# Python-Umgebung
-pip3 install --user google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client gspread
-
-# Credentials
-mkdir -p ~/.config/gcloud
-cp ~/Downloads/din5008-service-account.json ~/.config/gcloud/
-chmod 600 ~/.config/gcloud/din5008-service-account.json
-
-# Test
-python3 -c "import gspread; print('gspread OK')"
+# 6. JSON Key herunterladen → ~/.config/gcloud/din5008-service-account.json
 ```
 
 ---
