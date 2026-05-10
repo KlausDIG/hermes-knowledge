@@ -266,6 +266,18 @@ mkdir -p ~/snap/code/current/.config/Code:/User
 
 **Settings:** Siehe `templates/vscode-settings.json` für die komplette Konfiguration.
 
+**Git-Strategie:** Nutzer will Git-Anzeige (Branch, Status, Diff) aber **keinen Auto-Sync**.
+```json
+{
+  "git.enabled": true,           // Git-Anzeige aktiv
+  "git.autofetch": false,        // Kein Auto-Pull
+  "git.confirmSync": true,        // Bestätigung vor Push
+  "git.openRepositoryInParentFolders": "always"
+}
+```
+
+**Git ist Terminal-Tool – VS Code: macht keinen Auto-Push**
+
 **Erstellen via `write_file` (Heredocs fail in TTY-less env):**
 ```bash
 # ❌ NIE so:
@@ -303,12 +315,30 @@ for ext in "${extensions[@]}"; do
 done
 ```
 
-## Schritt 7: GitHub CLI Auth
+## Schritt 7: GitHub / GitLab CLI Auth (SICHER!)
+
+**TOKEN NIEMALS IM CHAT POSTEN.**
+Wenn in der Session ein Token gepostet wird:
+1. Sofort bei GitHub/GitLab widerrufen
+2. Neuen generieren
+3. `history -c` im Terminal
+4. `gh auth logout` + neu einloggen
 
 ```bash
-# TOKEN NIEMALS im Chat/Log speichern!
-echo "ghp_DEIN_TOKEN_HIER" | gh auth login --with-token --hostname github.com
+# ✅ RICHTIG – Keyring-Speicherung, nie im History:
+echo "ghp_DEIN_TOKEN" | gh auth login --with-token --hostname github.com && history -c
+
 gh auth setup-git --hostname github.com
+```
+
+**GitLab-Mirror (optional, Backup):**
+```bash
+# GitLab personal access token: Scopes api, write_repository
+# glab CLI installieren: brew install glab oder Release-Binary
+echo "glpat-TOKEN" | glab auth login --token --stdin && history -c
+glab repo create dotfiles --public --description "Backup"
+config remote add gitlab https://gitlab.com/USERNAME/dotfiles.git
+config push gitlab main --tags
 ```
 
 ## Schritt 8: Auto-Commit Daemon
@@ -447,11 +477,12 @@ for remote in ["origin", "gitlab"]:
 
 ## Automatischer Skill-Sync (Optional)
 
-### `scripts/hermes-sync.py`
-Synchronisiert Skills + Scripts mit Git + Semantic Release Tags.
-
-→ Detaillierte reale Pitfalls und Workarounds: Siehe `references/linux-brew-pitfalls.md`
-→ Diese Datei dokumentiert die tatsächlichen Fehlermeldungen aus der Live-Einrichtung (Mai 2026).
+→ Detaillierte reale Pitfalls und Workarounds:
+- `references/linux-brew-pitfalls.md`
+- `references/vscode-snap-paths.md`
+- `references/dotfiles-bare-repo.md`
+- `references/hermes-knowledge-sync.md`
+- `references/gitlab-mirror-auth.md`
 
 ```bash
 # Manuell ausführen
