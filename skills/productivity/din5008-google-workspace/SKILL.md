@@ -24,9 +24,16 @@ Erstelle professionelle Geschäftsunterlagen nach DIN 5008 Norm:
 ## 1. Schnellstart (Empfohlen: Lokal)
 
 > ✅ **Empfohlen** – funktioniert sofort ohne Cloud-Setup, ohne Auth, ohne API-Keys.
+>
+> ⚠️ **Pitfall – Cloud Auth Frustration:** Mehrere Sessions haben gezeigt, dass
+> Google Cloud Console / OAuth / Service Accounts in dekorativen Umgebungen
+> (Snap, headless, Firmen-Firewall) oft blockieren oder zu komplex sind.
+> **Regel:** Starte IMMER mit lokaler HTML/PDF. Cloud-Integration ist ein
+> **zusätzlicher Schritt**, nie ein Blocker.
+> Siehe: `references/google-auth-frustration.md`
 
 ```bash
-# Ein-Kommando Generator
+# Ein-Kommando Generator – sofort nutzbar
 din5008 brief      # Geschäftsbrief (HTML + Text)
 din5008 tabelle    # Auswertungstabelle (HTML + Markdown)
 din5008 all        # Beides (default)
@@ -204,16 +211,13 @@ din5008 help       # Hilfe
 
 ---
 
-## 4. Google Workspace Integration (Optional)
+## 4. Google Workspace Integration (Optional – nur wenn lokal funktioniert)
 
-> ⚠️ **Pitfall:** Google Cloud Console / OAuth kann in manchen Umgebungen
-> blockiert sein (Firmen-Firewall, fehlende Browser-Integration, komplexe
-> OAuth-Flows). Wenn der Google-Flow nicht klappt, sofort auf
-> **Abschnitt 3 (Lokale HTML)** zurückfallen – die Ergebnisse sind
-> visuell identisch.
-
-### 4.1 Voraussetzungen
-
+> ⚠️ **Pitfall aus mehreren Sessions:** Google Cloud Console / OAuth kann
+> blockieren wenn: Browser-Integration fehlt, Firmen-Firewall aktiv, oder
+> der OAuth-Flow im Terminal nicht interaktiv durchführbar ist.>
+> **Wenn der Flow nicht klappt:** Nutze SOFORT Abschnitt 3 (Lokale HTML).> Die visuelle Qualität ist identisch – Google Docs bringt keinen Vorteil> für statische DIN 5008 Briefe.>
+> **NUR fortfahren wenn:** Der Nutzer explizit "Google Setup" fordert UND> Credentials bereits vorhanden sind (z.B. Service Account JSON auf dem System).
 **Option A: OAuth Desktop Client (empfohlen für Einzelnutzer)**
 1. https://console.cloud.google.com/ → Projekt "din5008-editor"
 2. APIs aktivieren: Docs API, Sheets API, Drive API
