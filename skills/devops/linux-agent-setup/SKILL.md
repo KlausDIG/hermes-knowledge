@@ -1,9 +1,13 @@
 ---
 name: linux-agent-setup
 description: |
-  Vollständige Einrichtung eines autonomen Agent-Entwicklungsumfeldes auf Linux (Ubuntu/Debian). 
-  Beinhaltet Homebrew, Rust, Node, Shell-Config, VS Code: Extensions, Auto-Commit Daemon, 
-  systemd-Service, Hermes Cronjobs und Dokumentationsstruktur.
+  Vollständige Einrichtung eines autonomen Agent-Entwicklungsumfeldes auf Linux (Ubuntu/Debian).
+  Beinhaltet Homebrew, Rust, Node, Shell-Config, VS Code: (snap-aware), Dotfiles Bare-Repo Backup,
+  Auto-Commit Daemon, Hermes Knowledge Sync, systemd-Services, Cronjobs.
+  
+  Architecture: Git bare-repo (~/.cfg) for dotfiles, no symlinks.
+  Terminal constraint: Hermedocs fail in TTY-less env; use write_file or execute_code.
+  
 trigger:
   - "einrichten"
   - "setup agent"
@@ -12,11 +16,34 @@ trigger:
   - "dev environment"
   - "installiere tools"
   - "agent config"
+  - "dotfiles backup"
+  - "token sicher"
+  - "multi-remote"
 requirements:
   - Linux x86_64
-  - bash oder zsh
+  - bash (oder zsh, aber bash zuerst konfigurieren)
   - Internetverbindung
-  - GitHub CLI Token (optional)
+  - GitHub CLI Token (optional, für gh auth login)
+  - GitLab Token (optional, für Mirror)
+---
+
+## 🚨 Token-Sicherheit: KRITISCH
+
+**DIE WICHTIGSTE REGEL:** GitHub-Personal Access Tokens **NIEMALS im Chat/Log/Shell-History speichern!**
+
+```bash
+# ✅ RICHTIG – Token wird in Keyring gespeichert, nie im Filesystem lesbar:
+echo "ghp_DEIN_TOKEN" | gh auth login --with-token --hostname github.com
+
+# ❌ FALSCH – Token landet in ~/.bash_history und Chat-Logs:
+# gh auth login --with-token  # ← Typen im Chat = kompromittiert
+```
+
+**Wenn ein Token gepostet wurde:**
+1. Sofort bei https://github.com/settings/tokens widerrufen
+2. Neuen erstellen (Scopes: `repo`, `workflow`, `read:org`)
+3. `history -c` im Terminal ausführen
+
 ---
 
 # linux-agent-setup
@@ -30,7 +57,23 @@ Dieser Skill richtet eine komplette, portable Entwicklungsumgebung für einen au
 **WICHTIGSTE REGEL:** Erstelle die `.bashrc`-Config **BEvor** du zsh installieren versuchst (das erfordert `sudo`!).
 Falls zsh nicht installiert ist → konfiguriere `bash` erst, danach optional zsh.
 
-**NIE `cat <<EOF` für `.bashrc` verwenden!** Hermes' Terminal-Tool blockiert Heredoc-Syntax. Stattdessen Python `write_file` nutzen.
+**NIE `cat <<EOF` für `.bashrc` verwenden!** Hermes' Terminal-Tool blockiert Heredoc-Syntax. Stattdessen Python `write_file` oder `execute_code` nutzen.
+
+```python
+# ✅ RICHTIG:
+write_file(path="~/.bashrc", content="...", mode="append")
+
+# ✅ AUCH RICHTIG:
+execute_code(code="""
+with open('/home/klausd/.bashrc', 'a') as f:
+    f.write('# ===== Config =====\\n')
+""")
+
+# ❌ FALSCH – wird blockiert:
+# cat >> ~/.bashrc <<'EOF'
+# ...config...
+# EOF
+```
 
 ```bash
 git config --global user.name "Project Autonomous Agent"
@@ -38,14 +81,22 @@ git config --global user.email "agent@local.local"
 git config --global init.defaultBranch main
 ```
 
-## Schritt 2: SSH-Key
+## Schritt 3: Dotfiles Bare-Repo
 
+**Nur git benötigt – kein Ansible/Stow/Symlinks**
+
+Erstelle ein Git bare-repo in `~/.cfg`, um das gesamte Home-Directory versioniert zu halten. Der Alias `config` (statt `git`) wird in der Shell definiert. Siehe `references/dotfiles-bare-repo.md` für die komplette Architektur.
+
+**Schnell-Setup:**
 ```bash
-mkdir -p ~/.ssh && chmod 700 ~/.ssh
-ssh-keygen -t ed25519 -C "agent@rechner.local" -f ~/.ssh/id_ed25519 -N "" -q
+git init --bare $HOME/.cfg
+/usr/bin/git --git-dir=$HOME/.cfg --work-tree=$HOME config --local status.showUntrackedFiles no
+/usr/bin/git --git-dir=$HOME/.cfg --work-tree=$HOME config --local core.excludesFile $HOME/.gitignore_dotfiles
 ```
 
-## Schritt 3: Homebrew (Linuxbrew, user-lokal)
+**Kritisch: `.gitignore_dotfiles` vor dem ersten Commit erstellen** (Secrets ausschliessen – Template in `references/dotfiles-bare-repo.md`).
+
+## Schritt 4: Homebrew (Linuxbrew, user-lokal)
 
 ```bash
 # Nur wenn nicht vorhanden
@@ -205,42 +256,48 @@ done
 # pandoc   → via apt (sudo) oder Release-Binary
 ```
 
+## Schritt 8: VS Code: Config (Snap-Aware)
+
+**Snap-Installation** nutzt `~/snap/code/current/.config/Code:/User/`, NICHT `~/.config/Code:/User/`.
+
+```bash
+mkdir -p ~/snap/code/current/.config/Code:/User
+```
+
+**Settings:** Siehe `templates/vscode-settings.json` für die komplette Konfiguration.
+
+**Erstellen via `write_file` (Heredocs fail in TTY-less env):**
+```bash
+# ❌ NIE so:
+# cat > ~/snap/code/current/.config/Code:/User/settings.json <<'EOF'
+# {...}
+# EOF
+
+# ✅ Immer so (Python oder write_file):
+# write_file(path="~/snap/code/current/.config/Code:/User/settings.json", content="{...}")
+```
+
+**Extensions installieren (sequentiell wegen Locking):**
 ```bash
 extensions=(
-  "eamodio.gitlens"
-  "github.vscode-pull-request-github"
-  "github.copilot"
-  "github.copilot-chat"
-  "esbenp.prettier-vscode"
-  "dbaeumer.vscode-eslint"
-  "ms-python.python"
-  "ms-python.black-formatter"
-  "ms-vscode-remote.remote-ssh"
-  "ms-vscode-remote.remote-containers"
-  "bradlc.vscode-tailwindcss"
-  "formulahendry.auto-rename-tag"
-  "christian-kohler.npm-intellisense"
-  "eg2.vscode-npm-script"
-  "naumovs.color-highlight"
-  "pkief.material-icon-theme"
-  "editorconfig.editorconfig"
-  "aaron-bond.better-comments"
-  "wix.vscode-import-cost"
-  "wayou.vscode-todo-highlight"
-  "shd101wyy.markdown-preview-enhanced"
-  "streetsidesoftware.code-spell-checker"
-  "gruntfuggly.todo-tree"
-  "yzhang.markdown-all-in-one"
-  "rangav.vscode-thunder-client"
-  "github.copilot-workspace"
-  "visualstudioexptteam.vscodeintellicode"
-  "christian-kohler.path-intellisense"
-  "ms-vscode.vscode-github-issue-notebooks"
-  "ritwickdey.liveserver"
+  "eamodio.gitlens" "github.vscode-pull-request-github"
+  "github.copilot" "github.copilot-chat"
+  "esbenp.prettier-vscode" "dbaeumer.vscode-eslint"
+  "ms-python.python" "ms-python.black-formatter"
+  "ms-vscode-remote.remote-ssh" "ms-vscode-remote.remote-containers"
+  "bradlc.vscode-tailwindcss" "formulahendry.auto-rename-tag"
+  "christian-kohler.npm-intellisense" "eg2.vscode-npm-script"
+  "naumovs.color-highlight" "pkief.material-icon-theme"
+  "editorconfig.editorconfig" "aaron-bond.better-comments"
+  "wix.vscode-import-cost" "wayou.vscode-todo-highlight"
+  "shd101wyy.markdown-preview-enhanced" "streetsidesoftware.code-spell-checker"
+  "gruntfuggly.todo-tree" "yzhang.markdown-all-in-one"
+  "rangav.vscode-thunder-client" "github.copilot-workspace"
+  "visualstudioexptteam.vscodeintellicode" "christian-kohler.path-intellisense"
+  "ms-vscode.vscode-github-issue-notebooks" "ritwickdey.liveserver"
 )
 
 for ext in "${extensions[@]}"; do
-  echo "Installing $ext..."
   code --install-extension "$ext" --force 2>&1 | grep -E "installed|failed|already"
   sleep 1
 done
@@ -361,6 +418,32 @@ mkdir -p ~/Developer/{scripts,repos}
 | Terraform nicht in Linuxbrew | Keine offizielle Formel | `tfenv` oder HashiCorp APT |
 | Bun/Deno nicht in Linuxbrew | Keine Formel verfügbar | Via `npm` direkt installieren |
 | zsh fehlt | Nicht installiert auf headless | Config für bash, später zu zsh wechseln |
+
+## Multi-Remote Backup (GitHub + GitLab)
+
+Risiko: Nur ein Remote = Single Point of Failure.
+**Lösung:** GitLab als Mirror hinzufügen.
+
+```bash
+# Zum Bare-Repo hinzufügen
+/usr/bin/git --git-dir=$HOME/.cfg --work-tree=$HOME remote add gitlab https://gitlab.com/USERNAME/dotfiles.git
+
+# Push zu beiden
+config push origin main --tags
+config push gitlab main --tags
+```
+
+**GitLab-Setup:**
+1. GitLab-Account erstellen
+2. Repo `dotfiles` anlegen
+3. Personal Access Token (Scopes: `api`, `write_repository`)
+4. `echo "glpat-TOKEN" | glab auth login` (oder direkt in URL)
+
+**In Hermes Sync-Script integrieren:**
+```python
+for remote in ["origin", "gitlab"]:
+    subprocess.run(["git", "push", "-u", remote, "main", "--tags"], env=env)
+```
 
 ## Automatischer Skill-Sync (Optional)
 
