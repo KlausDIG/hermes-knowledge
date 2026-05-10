@@ -98,21 +98,22 @@ def commit_and_tag():
     return True
 
 def github_sync():
-    """Push zu GitHub"""
-    out, err, code = run_git(["remote", "-v"])
-    if code != 0 or "origin" not in out:
-        print("⚠️ Kein Remote gesetzt. Erstelle GitHub-Repo...")
-        result = subprocess.run(
-            ["gh", "repo", "create", "dotfiles", "--public", "--description", "Linux Dotfiles Backup", "--source=.", "--remote=origin", "--push"],
-            capture_output=True, text=True, cwd=CFG_DIR
+    """Push zu GitHub und GitLab via SSH"""
+    env_push = os.environ.copy()
+    env_push["GIT_DIR"] = str(CFG_DIR)
+    env_push["GIT_WORK_TREE"] = str(HOME)
+    # SSH Key direkt angeben (kein Agent nötig für Passphrase-less keys)
+    env_push["GIT_SSH_COMMAND"] = f"ssh -i {HOME}/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new"
+    
+    for remote in ["origin", "gitlab"]:
+        r = subprocess.run(
+            ["git", "push", "-u", remote, "main", "--tags"],
+            capture_output=True, text=True, env=env_push
         )
-        if result.returncode == 0:
-            print("✅ GitHub-Repo erstellt")
+        if r.returncode == 0:
+            print(f"🚀 Gepusht zu {remote}")
         else:
-            print(f"⚠️ Repo-Setup: {result.stderr}")
-    else:
-        run_git(["push", "origin", "main", "--tags"])
-        print("🚀 Gepusht zu GitHub")
+            print(f"⚠️ {remote}: {r.stderr[:120]}")
 
 def main():
     print("=== 🔄 Dotfiles Sync Start ===")

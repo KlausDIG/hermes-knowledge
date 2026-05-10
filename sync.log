@@ -124,3 +124,9 @@
 [2026-05-10 19:30:13] 🚀 Gepusht zu GitHub
 [2026-05-10 19:30:13] === ✅ Sync Abgeschlossen ===
 
+[2026-05-10 20:00:00] === 🔄 Hermes Knowledge Sync Start ===
+[2026-05-10 20:00:01] 📄 Skill: productivity/din5008-google-workspace/SKILL.md
+[2026-05-10 20:00:01] 📄 Skill: devops/linux-agent-setup/SKILL.md
+[2026-05-10 20:00:01] 📜 Script: setup-telegram-bot.sh
+[2026-05-10 20:00:01] 📜 Script: dotfiles-sync.py
+[2026-05-10 20:00:01] 📜 Script: setup-din5008.sh

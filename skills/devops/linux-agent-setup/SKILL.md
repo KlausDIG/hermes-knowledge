@@ -483,6 +483,7 @@ for remote in ["origin", "gitlab"]:
 - `references/dotfiles-bare-repo.md`
 - `references/hermes-knowledge-sync.md`
 - `references/gitlab-mirror-auth.md`
+- `references/n8n-integration.md`
 
 ```bash
 # Manuell ausführen
@@ -493,6 +494,72 @@ hermes cron create --name skill-sync --schedule "0 12 * * *" --prompt "Run /home
 ```
 
 Erstellt automatisch `v0.x.y` Tags bei jeder Änderung.
+
+---
+
+## n8n + Hermes Integration
+
+**n8n Installation (kein Docker nötig):**
+```bash
+npm install n8n -g
+# Binary liegt in ~/.hermes/node/bin/n8n
+export PATH="$HOME/.hermes/node/bin:$PATH"
+```
+
+**Systemd Service für n8n:**
+```ini
+[Unit]
+Description=n8n Workflow Automation
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/home/USERNAME/.hermes/node/bin/n8n start
+WorkingDirectory=/home/USERNAME/n8n
+Environment=PATH=/home/USERNAME/.hermes/node/bin:/usr/local/bin:/usr/bin:/bin
+Environment=HOME=/home/USERNAME
+Environment=NODE_ENV=production
+Environment=N8N_HOST=localhost
+Environment=N8N_PORT=5678
+Environment=GENERIC_TIMEZONE=Europe/Berlin
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+```
+
+**Event Trigger Skript:**
+```bash
+~/Developer/scripts/n8n-trigger.sh git-push '{"count":3}'
+# → Sendet Event an http://localhost:5678/webhook/hermes-events
+```
+
+**Verfügbare Templates:**
+- `hermes-status-monitor` — Schedule → Hermes Health → Telegram
+- `hermes-webhook-receiver` — Webhook → IF → Telegram
+- `github-telegram-notification` — GitHub PR → Telegram
+
+## SSH-Auth für systemd Services
+
+Systemd hat **keinen TTY**, daher kann SSH kein Passwort abfragen. Da der Key ohne Passphrase ist, funktioniert es mit direktem GIT_SSH_COMMAND:
+
+```bash
+# Host-Keys vorab akzeptieren
+ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+ssh-keyscan gitlab.com >> ~/.ssh/known_hosts 2>/dev/null
+
+# In Sync-Script:
+export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new"
+config push origin main --tags
+config push gitlab main --tags
+```
+
+**Im Service-File:**
+```ini
+[Service]
+Environment=GIT_SSH_COMMAND=ssh -i /home/USERNAME/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new
+```
 
 - **Token-Sicherheit:** PATs NIEMALS in Chat/Logs/Shell-History speichern
 - **GitHub Auth:** Immer `gh auth login` nutzen (speichert in Keyring)
