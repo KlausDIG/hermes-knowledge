@@ -82,16 +82,86 @@ echo "DB_PASSWORD=dein_db_passwort" >> .env
 docker compose up -d
 ```
 
-### npm (entwicklung)
+### npm (Alternative wenn kein Docker verfügbar)
 ```bash
-# Node.js 18+ benötigt
+# Wenn Docker nicht verfügbar ist (z.B. kein sudo, keine Docker-Installation):
 npm install n8n -g
-n8n start
+# oder
+pnpm add -g n8n
+
+# Verfügbar machen
+export PATH="$HOME/.local/share/pnpm/global/5/.bin:$PATH"
+# oder für npm global
+export PATH="$(npm prefix -g)/bin:$PATH"
 ```
+
+**Pitfall:** `n8n` Binary nach globaler Installation nicht im PATH.
+Lösung: `which n8n` prüfen, sonst `find ~ -name n8n -type f`.
 
 ---
 
-## Webhook-Trigger
+## Autostart via systemd (User-Level)
+
+Wenn Docker nicht verfügbar ist und n8n über npm läuft:
+
+```ini
+# ~/.config/systemd/user/n8n.service
+[Unit]
+Description=n8n Workflow Automation
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/share/pnpm/global/5/.bin/n8n start
+# Alternative falls npm:
+# ExecStart=%h/.hermes/node/bin/n8n start
+Environment=PATH=%h/.local/share/pnpm/global/5/.bin:%h/.hermes/node/bin:/usr/bin
+Environment=HOME=%h
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
+```
+
+Aktivieren:
+```bash
+systemctl --user daemon-reload
+systemctl --user enable n8n.service
+systemctl --user start n8n.service
+systemctl --user status n8n.service --no-pager
+```
+
+**Pitfall:** `WorkingDirectory=` verweist auf nicht-existierendes Verzeichnis.
+Lösung: `mkdir -p ~/n8n` vor dem Start oder `WorkingDirectory=%h` setzen.
+
+**Pitfall:** `Type=simple` ohne `ExecStop` kann Prozesse zurücklassen.
+Lösung: Vor Restart `pkill -f "n8n start"` ausführen.
+
+---
+
+## API-Key Auth (nicht Basic Auth)
+
+**Wichtig:** Moderne n8n-Versionen (ab v1.0) verwenden API-Key statt Basic Auth.
+
+```bash
+# API-Key in n8n UI generieren:
+# Settings → API → Create API Key
+
+# API-Abfrage
+curl -H "X-N8N-API-KEY: n8n_api_xxxxxx" \
+     http://localhost:5678/api/v1/workflows
+```
+
+**Pitfall:** Basic Auth (`N8N_BASIC_AUTH_*`) wird in neueren Versionen
+ignoriert. Immer API-Key verwenden.
+
+---
+
+## Installation
 
 ### Aktivierung
 ```bash
