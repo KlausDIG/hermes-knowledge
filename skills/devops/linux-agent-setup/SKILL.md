@@ -422,13 +422,144 @@ systemctl --user start agent-autocommit.service
 systemctl --user status agent-autocommit.service
 ```
 
-## Schritt 9: Hermes Cronjobs
+## Schritt 9: Hermes Knowledge Sync (mit Semantic Versioning)
 
-| Name | Schedule | Zweck |
-|------|----------|-------|
-| daily-sync | 0 9 * * * | System-Updates, brew outdated, df -h |
-| skill-discovery | 0 10 * * * | Neue Tools/Skills recherchieren |
-| self-update | 0 11 * * * | Config-Updates, Refactorings |
+### Ziel
+- Skills (`~/.hermes/skills/`) werden erkannt und übertragen (ohne builtin-duplicate)
+- Cronjobs werden exportiert
+- Memory + systemd config sind inbegriffen
+- Jedes Sync-Push bekommt automatisch ein SemVer-Tag
+
+### Architektur
+
+```
+~/.hermes/skills/         →   ~/Developer/repos/hermes-knowledge/skills/
+~/.local/share/systemd/   →   cronjobs/
+~/Developer/scripts/      →   scripts/
+```
+
+### Sync-Script
+
+Speichern als `~/Developer/scripts/hermes-knowledge-sync.py`:
+
+```python
+#!/usr/bin/env python3
+import os, re, subprocess, json
+from pathlib import Path
+from datetime import datetime
+
+REPO = Path.home() / "Developer/repos/hermes-knowledge"
+SKILLS = Path.home() / ".hermes/skills"
+LOG_FILE = REPO / "sync.log"
+
+def semver_bump(tag=None):
+    tags = subprocess.run(
+        ["git", "tag", "--list", "v*"],
+        cwd=REPO, capture_output=True, text=True
+    ).stdout.splitlines()
+    if not tags:
+        return "v0.0.1"
+    tags = sorted([t for t in tags if t.startswith("v")])
+    latest = tags[-1]
+    m = re.fullmatch(r"v(\d+)\.(\d+)\.(\d+)", latest)
+    if not m:
+        return "v0.0.1"
+    major, minor, patch = map(int, m.groups())
+    status = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=REPO, capture_output=True, text=True
+    ).stdout.strip()
+    if status:
+        return f"v{major}.{minor}.{patch + 1}"
+    return f"v{major}.{minor + 1}.0"
+
+def run_git(cwd, cmd):
+    r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+    return r.stdout, r.stderr, r.returncode
+
+def sync():
+    REPO.mkdir(parents=True, exist_ok=True)
+    run_git(REPO, ["git", "init"])
+    
+    # Custom Skills kopieren (builtin-duplicate vermeiden)
+    seen = set()
+    for path in SKILLS.rglob("SKILL.md"):
+        name = path.parent.parent.name + "/" + path.parent.name
+        if name in seen:
+            continue
+        seen.add(name)
+        dst = REPO / "skills" / path.parent.name / "SKILL.md"
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_text(path.read_text())
+    
+    # Cronjobs exportieren
+    cron_dir = REPO / "cronjobs"
+    cron_dir.mkdir(exist_ok=True)
+    for f in (Path.home() / ".config/systemd/user").glob("*.service"):
+        (cron_dir / f.name).write_bytes(f.read_bytes())
+    for f in (Path.home() / ".config/systemd/user").glob("*.timer"):
+        (cron_dir / f.name).write_bytes(f.read_bytes())
+    
+    # Memory
+    mem_src = Path.home() / ".hermes/memory"
+    mem_dst = REPO / "memory"
+    if mem_src.exists():
+        mem_dst.mkdir(exist_ok=True)
+        (mem_dst / "USER.md").write_bytes(mem_src.read_bytes())
+    
+    # Commit
+    env = os.environ.copy()
+    env["GIT_DIR"] = str(REPO / ".git")
+    env["GIT_WORK_TREE"] = str(REPO)
+    run_git(REPO, ["git", "add", "-A"])
+    run_git(REPO, ["git", "config", "user.name", "Project Autonomous Agent"])
+    run_git(REPO, ["git", "config", "user.email", "agent@local.local"])
+    out, err, code = run_git(REPO, ["git", "status", "--short"])
+    if code == 0 and out.strip():
+        msg = f"🤖 [SYNC] Agent sync @ {datetime.now():%Y-%m-%d %H:%M:%S}"
+        run_git(REPO, ["git", "commit", "-m", msg])
+        tag = semver_bump()
+        run_git(REPO, ["git", "tag", "-a", tag, "-m", f"Release {tag}"])
+        # Push (SSH mit direktem Key, für systemd)
+        env_push = env.copy()
+        env_push["GIT_SSH_COMMAND"] = f"ssh -i {Path.home()}/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new"
+        run_git(REPO, ["git", "push", "origin", "main", "--tags"])
+        LOG_FILE.write_text(LOG_FILE.read_text() + f"\n{datetime.now()}: Synced {tag}" if LOG_FILE.exists() else f"{datetime.now()}: Synced {tag}")
+    
+    return 0
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(sync())
+```
+
+### Systemd Timer
+
+```ini
+# ~/.config/systemd/user/hermes-knowledge-sync.timer
+[Unit]
+Description=Hermes Knowledge Sync Timer
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=30min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+```ini
+# ~/.config/systemd/user/hermes-knowledge-sync.service
+[Unit]
+Description=Hermes Knowledge Sync
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /home/USERNAME/Developer/scripts/hermes-knowledge-sync.py
+Environment=GIT_SSH_COMMAND=ssh -i /home/USERNAME/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new
+```
 
 ## Schritt 10: Verzeichnisstruktur
 
@@ -497,31 +628,57 @@ Erstellt automatisch `v0.x.y` Tags bei jeder Änderung.
 
 ---
 
-## n8n + Hermes Integration
+## n8n Installation (npm, NICHT Docker)
 
-**n8n Installation (kein Docker nötig):**
+### Warum npm statt Docker?
+- Docker erfordert root (oder Docker-Gruppe) auf dem Host
+- npm ist user-lokal, bereits via Linuxbrew verfügbar
+- systemd Service einfacher ohne Container-Overhead
+
+### Installation
+
 ```bash
+# Prüfe ob npm verfügbar (von Linuxbrew)
+which npm && npm --version
+
+# n8n installieren (global, user-lokal)
 npm install n8n -g
-# Binary liegt in ~/.hermes/node/bin/n8n
+
+# Binary liegt typisch in:
+#   ~/.hermes/node/bin/n8n
+#   ~/.n8n/node_modules/.bin/n8n
+
+# Zum PATH hinzufügen
 export PATH="$HOME/.hermes/node/bin:$PATH"
+# ODER
+export PATH="$HOME/.n8n/node_modules/.bin:$PATH"
 ```
 
-**Systemd Service für n8n:**
+### Systemd Service (korrigiert)
+
 ```ini
 [Unit]
 Description=n8n Workflow Automation
 After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/home/USERNAME/.hermes/node/bin/n8n start
+# WORKINGDIRECTORY muss existieren, sonst exit-code 200/CHDIR!
 WorkingDirectory=/home/USERNAME/n8n
+ExecStart=/home/USERNAME/.hermes/node/bin/n8n start
+# wichtig: Environment=PATH, sonst findet n8n node nicht
 Environment=PATH=/home/USERNAME/.hermes/node/bin:/usr/local/bin:/usr/bin:/bin
 Environment=HOME=/home/USERNAME
 Environment=NODE_ENV=production
 Environment=N8N_HOST=localhost
 Environment=N8N_PORT=5678
+Environment=N8N_PROTOCOL=http
 Environment=GENERIC_TIMEZONE=Europe/Berlin
+# Optional: Basic Auth
+Environment=N8N_BASIC_AUTH_ACTIVE=true
+Environment=N8N_BASIC_AUTH_USER=admin
+Environment=N8N_BASIC_AUTH_PASSWORD=ÄNDERE_DAS
 Restart=always
 RestartSec=5
 
@@ -529,16 +686,27 @@ RestartSec=5
 WantedBy=default.target
 ```
 
-**Event Trigger Skript:**
+**Verzeichnis vor Start erstellen:**
 ```bash
-~/Developer/scripts/n8n-trigger.sh git-push '{"count":3}'
-# → Sendet Event an http://localhost:5678/webhook/hermes-events
+mkdir -p ~/n8n
+systemctl --user daemon-reload
+systemctl --user start n8n.service
 ```
 
-**Verfügbare Templates:**
-- `hermes-status-monitor` — Schedule → Hermes Health → Telegram
-- `hermes-webhook-receiver` — Webhook → IF → Telegram
-- `github-telegram-notification` — GitHub PR → Telegram
+**Login:**
+- http://localhost:5678
+- User: admin / Passwort aus N8N_BASIC_AUTH_PASSWORD
+
+### Event-Trigger-Skript
+
+```bash
+~/Developer/scripts/n8n-trigger.sh git-push '{"count":3}'
+```
+→ Sendet POST an `http://localhost:5678/webhook/hermes-events`
+
+### Verfügbare Templates
+- `hermes-status-monitor` — Cron → Hermes Health → Telegram
+- `hermes-webhook-receiver` — Webhook → IF-Node → Telegram
 
 ## SSH-Auth für systemd Services
 
