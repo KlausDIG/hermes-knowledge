@@ -1,0 +1,26 @@
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         Scheduled Jobs                                  │
+└─────────────────────────────────────────────────────────────────────────┘
+
+  f5caf99f64a5 [active]
+    Name:      daily-sync
+    Schedule:  0 9 * * *
+    Repeat:    ∞
+    Next run:  2026-05-11T09:00:00+02:00
+    Deliver:   origin
+
+  356a029e02d4 [active]
+    Name:      skill-discovery
+    Schedule:  0 10 * * *
+    Repeat:    ∞
+    Next run:  2026-05-11T10:00:00+02:00
+    Deliver:   origin
+
+  a005012b6097 [active]
+    Name:      self-update
+    Schedule:  0 11 * * *
+    Repeat:    ∞
+    Next run:  2026-05-11T11:00:00+02:00
+    Deliver:   origin
+
