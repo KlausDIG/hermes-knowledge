@@ -501,6 +501,23 @@ for g in json.load(sys.stdin):
     print(f\"  {g['id']}  {g['description'] or '(no desc)':40}  {files}\")"
 ```
 
+## 11. Syncing Local Content to an Existing Repo
+
+When the user says "use my existing repo" but doesn't give the name, discover it:
+```bash
+# Search local filesystem for repos with GitHub remotes
+find ~ -maxdepth 3 -name ".git" -type d 2>/dev/null | while read d; do
+  cd "$d/.."
+  git remote -v 2>/dev/null | grep "github.com" | head -2
+  echo "---"
+done
+# Also check gh auth status for the logged-in username
+gh auth status 2>/dev/null
+```
+
+For the full workflow (empty repo handling, subdirectory layout, push steps), see:
+`references/sync-local-to-existing-repo.md`
+
 ## Quick Reference Table
 
 | Action | gh | git + curl |
@@ -514,3 +531,4 @@ for g in json.load(sys.stdin):
 | List workflows | `gh workflow list` | `curl GET /repos/o/r/actions/workflows` |
 | Rerun CI | `gh run rerun ID` | `curl POST /repos/o/r/actions/runs/ID/rerun` |
 | Set secret | `gh secret set KEY` | `curl PUT /repos/o/r/actions/secrets/KEY` (+ encryption) |
+| Sync local → existing | see §11 | see `references/sync-local-to-existing-repo.md` |
