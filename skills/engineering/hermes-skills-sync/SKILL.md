@@ -125,16 +125,49 @@ Alternativ als klassischer Cronjob:
 
 ## Projekt-Erzeugung (Skill → setuptools)
 
+### Einzelnes Projekt
+
 ```bash
-# Einen Skill als Projekt verpacken (interaktiv)
+# Interaktiv
 python3 tools/package_skill.py skills/engineering/ecad-pdf-analyzer
 
-# Ohne Nachfrage, direkt installieren
-python3 tools/package_skill.py skills/engineering/ecad-pdf-analyzer --auto --install
+# Ohne Nachfrage, nur generieren
+python3 tools/package_skill.py skills/engineering/ecad-pdf-analyzer --auto
 
-# Alle Skills auf einmal
+# Generieren + direkt installieren
+python3 tools/package_skill.py skills/engineering/ecad-pdf-analyzer --auto --install
+```
+
+### Alle Skills auf einmal
+
+```bash
+# Generiere 82 Projekte aus allen Skills (keine Nachfragen)
 python3 tools/package_skill.py --all --auto
 ```
+
+### Projekt nach GitHub pushen (Subtree)
+
+**Kritisch:** Projekte müssen zuerst committet sein, sonst `fatal: no new revisions were found`:
+
+```bash
+git add projects/
+git commit -m "feat(projects): generate all X standalone projects from skills"
+git push origin main
+```
+
+Dann Subtree-Push:
+
+```bash
+# Ein Projekt
+git subtree split --prefix projects/ecad_pdf_analyzer -b proj-ecad
+git remote add hermes-project-ecad_pdf_analyzer https://github.com/KlausDIG/hermes-project-ecad_pdf_analyzer.git
+git push -f hermes-project-ecad_pdf_analyzer proj-ecad:main
+git branch -D proj-ecad
+```
+
+### Batch: Alle Projekte auf GitHub
+
+Siehe `references/project-batch-push.md` für das vollständige Script mit Retry-Logik.
 
 Generiert in `projects/`:
 - `pyproject.toml` — setuptools-fähig
