@@ -5,11 +5,12 @@ description: |
   Unterstützt: STEP, IGES, BREP, STL, OBJ, PDF, DXF, DWG.
   Features: Teile-/Baugruppen-Erkennung, Fertigungsanalyse, Plausibilitätsprüfung,
   Modellvergleich, und Reverse-Engineering aus 2D-Zeichnungen (mehrere Ansichten).
+  Neu v1.3: Toleranzerkennung (ISO ±, H7/g6), Radius/Bogen-Erkennung aus PDF-Bézier-Kurven.
 toolsets:
   - terminal
   - file
   - python
-version: "1.2.0"
+version: "1.3.0"
 category: engineering
 tags:
   - cad
@@ -28,9 +29,12 @@ tags:
   - dxf
   - dwg
   - reconstruction
+  - tolerance
+  - radius
+  - arc-detection
 ---
 
-# 🔧 3D CAD Analyzer & Reconstructor v1.2.0
+# 🔧 3D CAD Analyzer & Reconstructor v1.3.0
 
 ## Pipeline-Übersicht
 
@@ -49,12 +53,13 @@ tags:
 ### Rekonstruktions-Modus (2D → 3D)
 11. 2D-Zeichnung einlesen (PDF, DXF)
 12. Maßstabserkennung aus Anmerkungen/Text (z.B. "M 1:10", "Scale 1:5")
-13. Ansichten erkennen (Top, Front, Right, Section)
-14. Geometrie extrahieren (Linien, Kreise, Bögen)
-15. Symmetrieerkennung (vertikal/horizontal) → Halbmodell → Vollmodell-Spiegelung
-16. Features identifizieren und korrelieren
-17. 3D-Solid generieren und als STEP/STL/DWG/DXF exportieren
-18. Geometrie mit erkanntem Maßstab skalieren
+13. **Toleranzerkennung** aus Text-Anmerkungen (ISO, ±0.1, H7/g6, Tol. ±0.05)
+14. Ansichten erkennen (Top, Front, Right, Section)
+15. Geometrie extrahieren (Linien, Kreise, **Bögen aus PDF-Bézier-Kurven**)
+16. Symmetrieerkennung (vertikal/horizontal) → Halbmodell → Vollmodell-Spiegelung
+17. Features identifizieren und korrelieren (Extrusionen, Bohrungen, **Fillets**
+18. 3D-Solid generieren und als STEP/STL/DWG/DXF exportieren
+19. Geometrie mit erkanntem Maßstab skalieren
 
 ## System-Start
 
@@ -263,7 +268,11 @@ python3 ~/Developer/scripts/reconstruct_3d.py drawing.pdf --format dwg --output 
 - Kein Gewinde-Recognition (nur Zylinderbohrung)
 - Nur einfache Extrusionen (keine Sweeps/Lofts)
 - Freiformflächen nicht unterstützt
-- Gewinde- und Toleranz-Informationen werden nicht aus Text extrahiert
+- Gewinde-Informationen werden nicht aus Text extrahiert
+
+### Neu in v1.3.0
+- **Toleranzerkennung** aus Text-Anmerkungen: direkt (±0.1), ISO-Klassen (H7/g6), Passungen (H7/g6). Boostet Confidence +0.05
+- **Radius-/Bogen-Erkennung** aus PDF-Bézier-Kurven: Unterscheidet volle Kreise (>350°) von Bögen (<350°). Bögen als `fillet`-Features
 
 ### Neu in v1.2.0
 - **Automatische Maßstabserkennung** — Erkennt "1:10", "M 1:5", "Scale 1:20" aus PDF/DXF-Text
@@ -286,6 +295,7 @@ python3 ~/Developer/scripts/reconstruct_3d.py drawing.pdf --format dwg --output 
 
 ## Versionierung
 
+- v1.3.0 — Toleranzerkennung aus Text (±0.1, H7, g6, H7/g6), Bogen-Erkennung aus PDF-Bézier-Kurven (Arc2D vs Circle2D), Arcs als fillet-Features, Confidence-Boost +0.05 bei Toleranzen
 - v1.2.0 — Maßstabserkennung aus Anmerkungen, automatische Symmetrieerkennung (Halbmodell-Spiegelung), Confidence-Boost für erkannte Maßstäbe/Symmetrien
 - v1.1.0 — 2D→3D Rekonstruktion (PDF/DXF → STEP/STL/DXF), Multi-Ansichten-Erkennung, DWG-Bridge-Doku
 - v1.0.0 — Initiale Pipeline mit STEP, IGES, STL, OBJ, 3MF, glTF/GLB, FCStd
