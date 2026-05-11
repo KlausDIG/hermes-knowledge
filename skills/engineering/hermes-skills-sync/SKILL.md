@@ -3,12 +3,13 @@ name: hermes-skills-sync
 description: |
   Automatischer Skills-Sync-Service für Hermes GitHub-Repo.
   Erkennt Änderungen an allen Skills, versioniert (SemVer), taggt und pusht.
+  Bietet Git-Subtree-Extraktion für einzelne Skill-Repos.
   Wiederkehrend via Cronjob oder manuell ausführbar.
 toolsets:
   - terminal
   - file
   - skill_manage
-version: "1.0.0"
+version: "5.0.0"
 category: engineering
 tags:
   - skills
@@ -18,10 +19,12 @@ tags:
   - github
   - cronjob
   - semver
+  - subtree
   - maintenance
+  - packaging
 ---
 
-# 🔄 Hermes Skills Sync v1.0.0
+# 🔄 Hermes Skills Sync v4.0.0
 
 ## Zweck
 
@@ -33,7 +36,26 @@ Bei jeder Änderung an einem Skill:
 4. Erstellt Git-Tag (`skillname@v1.2.3`)
 5. Push + Push-Tags zu GitHub
 
-## Anwendung
+## Skill vs. Projekt
+
+Dieser Skill bildet eine **zweistufige Struktur** ab:
+
+| Aspekt | **Skill** (`skills/...`) | **Projekt** (`projects/...`) |
+|--------|--------------------------|------------------------------|
+| **Zweck** | Agent-Workflow, Prompts, Know-how | Eigenständiges Python-Paket |
+| **Installation** | `skill_view()` im Agenten | `pip install -e .` auf jedem Rechner |
+| **Nutzung** | Hermes-Toolcalls, LLM-Kontext | CLI, Import, CI/CD, andere Rechner |
+| **Release** | Git-Tag im Monorepo | Subtree-Push zu eigenem Repo |
+| **Struktur** | `SKILL.md` + `scripts/` + `references/` | `pyproject.toml` + `src/` + Tests |
+| **Beispiel** | *"So analysierst du ein PDF"* | `import hermes_ecad_pdf_analyzer; ...` |
+
+**Faustregel:**
+- Ein **Skill** beschreibt dem Agenten *wie* etwas gemacht wird.
+- Ein **Projekt** macht es *eigenständig nutzbar* — auch ohne Hermes.
+
+→ Details: `references/skill-vs-project.md`
+
+## Projekt-Erzeugung (Skill → setuptools)
 
 ### Manueller Sync
 
@@ -101,11 +123,55 @@ Alternativ als klassischer Cronjob:
 | `neu` / `new feature` / `hinzugefügt` | minor |
 | Alles andere | patch |
 
+## Projekt-Erzeugung (Skill → setuptools)
+
+```bash
+# Einen Skill als Projekt verpacken (interaktiv)
+python3 tools/package_skill.py skills/engineering/ecad-pdf-analyzer
+
+# Ohne Nachfrage, direkt installieren
+python3 tools/package_skill.py skills/engineering/ecad-pdf-analyzer --auto --install
+
+# Alle Skills auf einmal
+python3 tools/package_skill.py --all --auto
+```
+
+Generiert in `projects/`:
+- `pyproject.toml` — setuptools-fähig
+- `src/hermes_<name>/` — Module mit den Skill-Skripten
+- `README.md` — Kurzbeschreibung
+- `SKILL_REFERENCE.md` — Kopie des Original-SKILL.md
+- `.skill_manifest.json` — Mapping Skill ↔ Projekt
+
+## Projekt auschecken (eigenständig)
+
+```bash
+# Ein Projekt clonen (kein Hermes nötig)
+git clone https://github.com/KlausDIG/hermes-project-hermes-skills-sync.git
+cd hermes-project-hermes-skills-sync
+pip install -e .
+extract-subtrees --help
+```
+
+## Subtree-Befehle
+
+```bash
+# Nur einen Skill brauchen:
+git clone https://github.com/<owner>/hermes-skill-<name>.git
+
+# Updates vom Monorepo holen:
+git subtree pull --prefix skills/<cat>/<skill> hermes-skill-<name> main
+
+# Updates ins Monorepo zurückspielen:
+git subtree push --prefix skills/<cat>/<skill> hermes-skill-<name> main
+```
+
 ## Dependencies
 
 - Git mit konfiguriertem GitHub-Remote
 - `gh` CLI (optional, für Auth-Checks)
 - Python 3.10+
+- setuptools >= 61.2 (für Projekte)
 
 ## Outputs
 
@@ -113,12 +179,19 @@ Alternativ als klassischer Cronjob:
 - Git-Tags pro Version
 - `CHANGELOG.md` mit History
 - JSON-State für Inkrementalsync
+- 83 separate Skill-Repos auf GitHub (Subtree)
+- `projects/` mit setuptools-fähigen Paketen
+
+## Scripts
+
+| Script | Zweck |
+|--------|-------|
+| `scripts/skills_sync.py` | Haupt-Sync-Daemon |
+| `scripts/extract_subtrees.py` | Subtree-Extraktion + GitHub-Push |
+| `tools/package_skill.py` | Skill → Python-Projekt Generator |
 
 ## References
 
 - `references/cronjob-setup.md` — Hermes Cronjob-Constraints und Pitfalls
 - `references/github-auth-pitfalls.md` — PAT vs SSH, Token-Handling
-
-## Scripts
-
-- `scripts/skills_sync.py` — Haupt-Sync-Daemon
+- `references/subtree-workflow.md` — Subtree-Command-Reference
