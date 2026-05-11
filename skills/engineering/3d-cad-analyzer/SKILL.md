@@ -9,7 +9,7 @@ toolsets:
   - terminal
   - file
   - python
-version: "1.1.0"
+version: "1.2.0"
 category: engineering
 tags:
   - cad
@@ -30,7 +30,7 @@ tags:
   - reconstruction
 ---
 
-# 🔧 3D CAD Analyzer & Reconstructor v1.1.0
+# 🔧 3D CAD Analyzer & Reconstructor v1.2.0
 
 ## Pipeline-Übersicht
 
@@ -48,10 +48,13 @@ tags:
 
 ### Rekonstruktions-Modus (2D → 3D)
 11. 2D-Zeichnung einlesen (PDF, DXF)
-12. Ansichten erkennen (Top, Front, Right, Section)
-13. Geometrie extrahieren (Linien, Kreise, Bögen)
-14. Features identifizieren und korrelieren
-15. 3D-Solid generieren und als STEP/STL exportieren
+12. Maßstabserkennung aus Anmerkungen/Text (z.B. "M 1:10", "Scale 1:5")
+13. Ansichten erkennen (Top, Front, Right, Section)
+14. Geometrie extrahieren (Linien, Kreise, Bögen)
+15. Symmetrieerkennung (vertikal/horizontal) → Halbmodell → Vollmodell-Spiegelung
+16. Features identifizieren und korrelieren
+17. 3D-Solid generieren und als STEP/STL/DWG/DXF exportieren
+18. Geometrie mit erkanntem Maßstab skalieren
 
 ## System-Start
 
@@ -189,6 +192,8 @@ Vollständiges Schema: siehe `templates/output_schema.json`
 
 **Detaillierte Pipeline-Doku:** `references/2d-to-3d-reconstruction.md`
 
+**ODA Installations-Helper:** `scripts/install_odafc.sh` — automatisiert ODAFileConverter-Setup
+
 ### Ansichten-Erkennung
 - Vertikale Separierung (große Y-Lücken = separate Ansichten)
 - Klassifizierung: Top (horizontal), Front (vertikal), Right (gemischt)
@@ -258,14 +263,17 @@ python3 ~/Developer/scripts/reconstruct_3d.py drawing.pdf --format dwg --output 
 - Kein Gewinde-Recognition (nur Zylinderbohrung)
 - Nur einfache Extrusionen (keine Sweeps/Lofts)
 - Freiformflächen nicht unterstützt
-- Keine Maßstäbe/Annotationen gelesen (nur reine Geometrie)
-- Symmetrieachsen nicht automatisch erkannt
+- Gewinde- und Toleranz-Informationen werden nicht aus Text extrahiert
+
+### Neu in v1.2.0
+- **Automatische Maßstabserkennung** — Erkennt "1:10", "M 1:5", "Scale 1:20" aus PDF/DXF-Text
+- **Automatische Symmetrieerkennung** — Erkennt vertikale/horizontale Symmetrieachsen, vervollständigt das 3D-Modell automatisch per Spiegelung
 
 ### Pitfalls
 1. **PDF mit Rasterbildern** — `get_drawings()` liefert nur Vektoren; gescannte Pläne müssen vorher vektorisiert werden
 2. **Falsche Ansichtenzuordnung** — Bei abweichender Anordnung (z.B. Front über Top) manuell prüfen
 3. **OCC-Abhängigkeit vergessen** — STEP/STL brauchen `pythonocc-core`; ohne geht nur DXF/JSON
-4. **Skalierung** — PDF-Koordinaten sind in Punkt/Einheiten; `--scale` für echte Maßstäbe nötig
+4. **Skalierung falsch** — Erkannte Maßstäbe werden automatisch angewendet; bei Fehler `--scale` überschreiben
 
 ## Wichtige Hinweise
 
@@ -278,5 +286,6 @@ python3 ~/Developer/scripts/reconstruct_3d.py drawing.pdf --format dwg --output 
 
 ## Versionierung
 
+- v1.2.0 — Maßstabserkennung aus Anmerkungen, automatische Symmetrieerkennung (Halbmodell-Spiegelung), Confidence-Boost für erkannte Maßstäbe/Symmetrien
 - v1.1.0 — 2D→3D Rekonstruktion (PDF/DXF → STEP/STL/DXF), Multi-Ansichten-Erkennung, DWG-Bridge-Doku
 - v1.0.0 — Initiale Pipeline mit STEP, IGES, STL, OBJ, 3MF, glTF/GLB, FCStd
