@@ -1,20 +1,36 @@
 ---
 name: 3d-cad-analyzer
 description: |
-  Lokaler 3D-CAD-Analyse-Agent für technische CAD-Modelle aus unterschiedlichen
-  CAD-Systemen (SolidWorks, Inventor, Fusion 360, CATIA, Siemens NX, Creo, FreeCAD,
-  Onshape, STEP, IGES, STL, OBJ). Extrahiert technische Informationen, erkennt
-  Bauteile/Baugruppen/Geometrien, prüft Plausibilität, leitet neutrales
-  Engineering-Modell ab und liefert prüfbare Ergebnisse mit Confidence-Werten.
+  Lokaler 3D-CAD-Analyse-Agent für technische CAD-Modelle und 2D→3D-Rekonstruktion.
+  Unterstützt: STEP, IGES, BREP, STL, OBJ, PDF, DXF, DWG.
+  Features: Teile-/Baugruppen-Erkennung, Fertigungsanalyse, Plausibilitätsprüfung,
+  Modellvergleich, und Reverse-Engineering aus 2D-Zeichnungen (mehrere Ansichten).
 toolsets:
   - terminal
   - file
   - python
-version: "1.0.0"
+version: "1.1.0"
 category: engineering
+tags:
+  - cad
+  - ecad
+  - step
+  - iges
+  - brep
+  - stl
+  - obj
+  - 3d-analysis
+  - feature-extraction
+  - manufacturing
+  - 2d-to-3d
+  - reverse-engineering
+  - pdf
+  - dxf
+  - dwg
+  - reconstruction
 ---
 
-# 🔧 3D CAD Analyzer v1.0.0
+# 🔧 3D CAD Analyzer & Reconstructor v1.1.0
 
 ## Pipeline-Übersicht
 
@@ -84,6 +100,9 @@ python3 ~/Developer/scripts/reconstruct_3d.py drawing.dxf --format stl
 
 # Nur JSON-Bericht (ohne OCC = ohne 3D-Export)
 python3 ~/Developer/scripts/reconstruct_3d.py drawing.pdf --format json
+
+# 2D-Rekonstruktion als DXF (kein pythonocc nötig)
+python3 ~/Developer/scripts/reconstruct_3d.py drawing.pdf --format dxf
 ```
 
 ## Ausgabe-Formate
@@ -96,6 +115,8 @@ python3 ~/Developer/scripts/reconstruct_3d.py drawing.pdf --format json
 | Markdown | `--format md` | Dokumentation, Reviews |
 | Graph | `--format graph` | Netzwerkvisualisierung |
 | STEP | `--format step` | Neutrales Export-Modell |
+| STL | `--format stl` | 3D-Druck, Simulation |
+| DXF | `--format dxf` | AutoCAD-kompatibel |
 
 ## Hauptkomponenten
 
@@ -112,9 +133,9 @@ python3 ~/Developer/scripts/reconstruct_3d.py drawing.pdf --format json
 | `cad_compare.py` | Modellvergleich, Revisions-Diff |
 
 ### Rekonstruktion (2D → 3D)
-| Modul | Funktion |
-|-------|----------|
-| `reconstruct_3d.py` | PDF/DXF einlesen, Ansichten erkennen, Features korrelieren, 3D-Solid generieren, STEP/STL exportieren |
+| Modul | Funktion | Referenz |
+|-------|----------|----------|
+| `reconstruct_3d.py` | PDF/DXF → Ansichten → Features → STEP/STL/DXF/JSON | `references/2d-to-3d-reconstruction.md` |
 
 ## JSON-Zwischenmodell (kurz)
 
@@ -146,6 +167,9 @@ Vollständiges Schema: siehe `templates/output_schema.json`
 | 3MF | Mesh + Metadaten | ✅ Vollständig | ⚠️ Begrenzt |
 | glTF / GLB | Mesh + Szene | ✅ Vollständig | ⚠️ Begrenzt |
 | FCStd | FreeCAD nativ | ✅ Vollständig | ✅ Hoch |
+| PDF | 2D-Zeichnung (Vektor) | ✅ Vollständig | ✅ Mittel (Rekonstruktion) |
+| DXF | 2D-Zeichnung (Vektor) | ✅ Vollständig | ✅ Mittel (Rekonstruktion) |
+| DWG | 2D/3D nativ | ⚠️ Indirekt (als DXF/PDF) | ⚠️ Über Umweg |
 | SLDPRT / SLDASM | SolidWorks | ⚠️ Über STEP/IFC | ✅ Mittel |
 | IPT / IAM | Inventor | ⚠️ Über STEP/IFC | ✅ Mittel |
 | CATPart / CATProduct | CATIA | ⚠️ Über STEP/IFC | ✅ Mittel |
@@ -161,6 +185,88 @@ Vollständiges Schema: siehe `templates/output_schema.json`
 | 0.30–0.49 | Spekulativ (mehrere Möglichkeiten) |
 | <0.30 | Nicht bestimmbar (explizit markieren) |
 
+## 2D → 3D Rekonstruktion
+
+**Detaillierte Pipeline-Doku:** `references/2d-to-3d-reconstruction.md`
+
+### Ansichten-Erkennung
+- Vertikale Separierung (große Y-Lücken = separate Ansichten)
+- Klassifizierung: Top (horizontal), Front (vertikal), Right (gemischt)
+- Standard-Anordnung (3 Ansichten: Top→Front→Right)
+
+### Feature-Korrelation
+- Extrusion aus geschlossenem Profil (Top-View)
+- Tiefe aus Front-View (höchste Linie in gleicher X-Position)
+- Bohrungen aus Kreisen (Durchmesser aus Top, Tiefe aus Front)
+- Schnitte (Section-View) erkennen durch Schraffur/Abbruchkanten
+
+### Export-Formate
+| Format | Anwendung | Braucht pythonocc |
+|--------|-----------|-------------------|
+| STEP (.step/.stp) | Alle CAD-Systeme | ✅ Ja |
+| STL (.stl) | 3D-Druck, Simulation | ✅ Ja |
+| DXF (.dxf) | AutoCAD-kompatibel | ❌ Nein (nur ezdxf) |
+| JSON (.json) | Feature-Report | ❌ Nein |
+
+### Beispiele
+```bash
+# Multi-Ansicht-Zeichnung → STEP-Modell
+python3 ~/Developer/scripts/reconstruct_3d.py drawing.pdf --format step
+
+# 2D-Rekonstruktion als DXF (kein OCC nötig)
+python3 ~/Developer/scripts/reconstruct_3d.py drawing.pdf --format dxf
+
+# Nur JSON-Bericht
+python3 ~/Developer/scripts/reconstruct_3d.py drawing.pdf --format json
+
+# Mit Skalierung (1:10 Zeichnung)
+python3 ~/Developer/scripts/reconstruct_3d.py drawing.pdf --scale 10 --format step
+
+# STL für 3D-Druck
+python3 ~/Developer/scripts/reconstruct_3d.py drawing.dxf --format stl --output print/
+```
+
+### DWG-Konvertierung (auto-detection)
+Das Skript erzeugt bei `--format dwg` automatisch eine DXF-Datei und konvertiert diese
+sofern ein Tool verfügbar ist:
+
+**Priorität:**
+1. `ODAFileConverter` (beste Qualität, AutoCAD-kompatibel)
+2. `dxf2dwg` / `libreDWG` (Open Source)
+3. **Fallback:** DXF wird als Ersatz behalten (AutoCAD, LibreCAD, FreeCAD lesen DXF)
+
+**Tool installieren:**
+```bash
+# ODA File Converter herunterladen
+https://www.opendesign.com/guestfiles/oda_file_converter
+# → DEB Installieren oder AppImage nach ~/.local/bin/oda/ extrahieren
+
+# Alternative: libreDWG (Ubuntu/Debian)
+sudo apt install libredwg-bin
+
+# Verfügbarkeit prüfen
+python3 ~/Developer/scripts/oda_wrapper.py
+```
+
+**Beispiel DWG-Export:**
+```bash
+python3 ~/Developer/scripts/reconstruct_3d.py drawing.pdf --format dwg --output cad/
+# → cad/drawing.dwg  (oder cad/drawing.dxf als Fallback)
+```
+
+### Limitierungen
+- Kein Gewinde-Recognition (nur Zylinderbohrung)
+- Nur einfache Extrusionen (keine Sweeps/Lofts)
+- Freiformflächen nicht unterstützt
+- Keine Maßstäbe/Annotationen gelesen (nur reine Geometrie)
+- Symmetrieachsen nicht automatisch erkannt
+
+### Pitfalls
+1. **PDF mit Rasterbildern** — `get_drawings()` liefert nur Vektoren; gescannte Pläne müssen vorher vektorisiert werden
+2. **Falsche Ansichtenzuordnung** — Bei abweichender Anordnung (z.B. Front über Top) manuell prüfen
+3. **OCC-Abhängigkeit vergessen** — STEP/STL brauchen `pythonocc-core`; ohne geht nur DXF/JSON
+4. **Skalierung** — PDF-Koordinaten sind in Punkt/Einheiten; `--scale` für echte Maßstäbe nötig
+
 ## Wichtige Hinweise
 
 - **STL/OBJ** enthalten meist keine exakten Feature- oder Materialinformationen.
@@ -172,4 +278,5 @@ Vollständiges Schema: siehe `templates/output_schema.json`
 
 ## Versionierung
 
+- v1.1.0 — 2D→3D Rekonstruktion (PDF/DXF → STEP/STL/DXF), Multi-Ansichten-Erkennung, DWG-Bridge-Doku
 - v1.0.0 — Initiale Pipeline mit STEP, IGES, STL, OBJ, 3MF, glTF/GLB, FCStd
