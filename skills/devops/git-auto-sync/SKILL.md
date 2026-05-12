@@ -1,7 +1,7 @@
 ---
 name: git-auto-sync
-version: 1.0.0
-description: Offline-resilientes Git Auto-Push für alle lokalen Repos mit Retry, Timeout und Pending-Queue.
+version: 2.0.0
+description: Offline-resilientes Git Auto-Push + Projekt-Status-Tracker. Trackt offene/vollendete Punkte aus Status-Dateien, GitHub Issues und Commit-TODOs.
 tags: [git, sync, cronjob, offline, automation, bash]
 author: KlausDIG
 ---
@@ -17,6 +17,8 @@ Nutze diesen Skill, wenn du:
 - Commits im Hintergrund erstellen möchtest (auch ohne Internet)
 - Pushes automatisch nachholen lassen willst, sobald du wieder online bist
 - Einen Cronjob für Git-Sync einrichten möchtest
+- **Offene und vollendete Punkte aller Projekte tracken willst**
+- Automatische Status-Reports über Projektfortschritt haben willst
 
 ## Setup
 
@@ -67,11 +69,31 @@ SEARCH_PATHS=(
 | 🔁 **Retry (3×)** | Netzwerkfehler mit exponentiellem Backoff (5s → 10s → 20s) |
 | 🔇 **SSH non-interactive** | Keine Passwort-Prompts, 10s Connect-Timeout |
 | 🚫 **Rejected-Erkennung** | Stale info / non-fast-forward → manuell markiert, kein Endlos-Retry |
+| 📊 **Projekt-Status-Tracker** | Scant TODO.md, ROADMAP.md, GitHub Issues, Commit-TODOs |
+| 🔄 **Status-Änderungsdetektion** | Cache-basiert, meldet nur bei echten Änderungen |
+| 📝 **Status-Log** | Zentraler Report unter `~/.hermes/logs/project-status.log` |
 
 ## Konfiguration
 
-### Log-Datei
-`~/.hermes/logs/auto-push-projects.log`
+### Status-Dateien (automatisch gescannt)
+
+Folgende Dateien im Repo-Wurzelverzeichnis werden geprüft:
+
+- `TODO.md`
+- `ROADMAP.md`
+- `STATUS.md`
+- `CHECKLIST.md`
+- `PLAN.md`
+- `TASKS.md`
+
+Erkannt werden:
+- **Offen:** `[ ]`, `- [ ]`, `□`, `☐`, `TODO:`, `OFFEN:`, `OPEN:`
+- **Vollendet:** `[x]`, `[X]`, `☑`, `☒`, `✅`, `DONE:`, `ERLEDIGT:`, `COMPLETE:`
+
+### Log-Dateien
+- **Push-Log:** `~/.hermes/logs/auto-push-projects.log`
+- **Status-Report:** `~/.hermes/logs/project-status.log`
+- **Status-Cache:** `~/.hermes/cache/project-status-cache/status-entries.txt`
 
 ### Pending-File-Format
 
@@ -103,6 +125,8 @@ Start
   → Lock-File prüfen (oder abbrechen)
   → Alte pending Pushes nachholen
   → Für jedes Repo:
+      → 📊 Status scan (TODO.md, ROADMAP.md, GitHub Issues, Commit-TODOs)
+      → Cache prüfen (bei Änderung → melden)
       → Änderungen committen (immer lokal)
       → Online-Check (curl GitHub/Google, 4s Timeout)
       → Falls online:
