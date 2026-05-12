@@ -1,5 +1,6 @@
 # KlausDIG Agent-Konfigurationspaket
 # Erstellt: 2026-05-12
+# Letzte Aktualisierung: 2026-05-12 17:46
 # Diese Datei enthält alle relevanten Konfigurationen, damit ein neuer Agent
 # sich identisch verhält wie der aktuelle.
 
@@ -66,7 +67,7 @@ hermes_home: /home/klausd/.hermes/hermes-agent
 
 | Skill | Kategorie | Version | Pfad |
 |-------|-----------|---------|------|
-| git-auto-sync | devops | v3.0.0 | ~/.hermes/skills/devops/git-auto-sync/ |
+| git-auto-sync | devops | v3.1.0 | ~/.hermes/skills/devops/git-auto-sync/ |
 | automated-git-sync | devops | - | ~/.hermes/skills/devops/automated-git-sync/ |
 | hermes-skills-sync | engineering | - | ~/.hermes/skills/engineering/hermes-skills-sync/ |
 | linux-agent-setup | devops | - | ~/.hermes/skills/devops/linux-agent-setup/ |
@@ -95,26 +96,31 @@ hermes_home: /home/klausd/.hermes/hermes-agent
 project-auto-push (ID: 5d389686c47a)
   Schedule: */30 * * * *
   Script: ~/.hermes/scripts/auto-push-projects.sh
+  Version: v3.1.0
   Features:
     - Offline-resilient (curl-Check, Pending-Queue)
     - Lock-File (3min stale-timeout)
-    - Retry 3× exponentiell (5s→10s→20s)
+    - Retry 3x exponentiell (5s->10s->20s)
     - SSH non-interactive (10s timeout)
     - Projekt-Status-Tracking (TODO.md, Commits, GitHub Issues)
     - Skill-TODO-Extractor (echte Dev-TODOs, keine Templates)
     - Chat-TODO-Integration (~/.hermes/cache/chat-todos.txt)
+    - Trend-Tracking (CSV: date,open,closed,total)
+    - Log-Komprimierung (>1000 Zeilen -> gzip-Archiv)
 ```
 
 ### Wichtige Dateien
 ```
-~/.hermes/scripts/auto-push-projects.sh       # Hauptscript v3.0
+~/.hermes/scripts/auto-push-projects.sh       # Hauptscript v3.1
 ~/.hermes/scripts/todo-extractor.py             # Python TODO-Extractor v3.0
 ~/.hermes/cache/pending-pushes.txt              # Ausstehende Pushes
 ~/.hermes/cache/chat-todos.txt                    # Manuelle Chat-TODOs
 ~/.hermes/cache/project-status-cache/             # Status-Änderungsdetektion
+~/.hermes/cache/project-trends/                   # Trend-CSV pro Repo
 ~/.hermes/logs/auto-push-projects.log           # Push-Aktivität
 ~/.hermes/logs/project-status.log               # Aggregierter Status
 ~/.hermes/logs/todo-extractor.log               # TODO-Extraktion
+~/.hermes/logs/archive/                         # Komprimierte Log-Archive
 ```
 
 ---
@@ -123,8 +129,11 @@ project-auto-push (ID: 5d389686c47a)
 
 ```
 ~/Developer/repos/          # Haupt-Repo-Verzeichnis
-├── linux-agent-setup/      # 0 offene TODOs
-├── hermes-knowledge/       # 1 offenes TODO (aus Skills)
+├── linux-agent-setup/      # 0 offene TODOs, TODO.md vollendet
+├── hermes-knowledge/       # 0 offene TODOs (ALLE 4 erledigt)
+│   ├── TODO.md             # Projekt-Status mit Checklisten
+│   ├── STATUS.md           # Aggregierter Markdown-Report
+│   └── AGENT_CONFIG_TRANSFER.md
 └── hermes-knowledge-archive-*
 ```
 
@@ -137,7 +146,10 @@ project-auto-push (ID: 5d389686c47a)
 3. **Skill-TODO-Filter:** Nur TODOs mit konkretem Action-Verb (implement/fix/add/...)
 4. **Keine VS-Code-Git-Integration:** Bewusste Entscheidung, respektieren
 5. **Keine sudo-Ops:** Alles user-local (Homebrew, pipx, ~/.local)
-6. **Semantic Versioning:** v1.0.0 → v2.0.0 → v3.0.0 für jeden Major-Feature-Sprung
+6. **Semantic Versioning:** v1.0.0 -> v2.0.0 -> v3.0.0 -> v3.1.0
+7. **Markdown-Report statt Web-Dashboard:** Versionierbar, offline-lesbar, kein Server
+8. **Trend-Tracking als CSV:** Einfach parsbar, mit Standard-Tools auswertbar
+9. **Log-Komprimierung:** Max 5 Archive behalten, max 1000 Zeilen live
 
 ---
 
@@ -151,6 +163,19 @@ project-auto-push (ID: 5d389686c47a)
 5. Stelle sicher, dass auto-push-projects.sh existiert und ausführbar ist
 6. Bei Unklarheiten: session_search() für "git-auto-sync" oder "todo"
 ```
+
+---
+
+## 9. Zuletzt erledigte Aufgaben (Kontext)
+
+- Auto-Push Script auf v3.1.0 (Trend-Tracking + Log-Komprimierung)
+- 4/4 TODOs in hermes-knowledge erledigt:
+  1. Skill git-auto-sync auf v3.0 (bereits aktuell)
+  2. Markdown-Report STATUS.md erstellt
+  3. Trend-Tracking implementiert (CSV-Export)
+  4. Log-Komprimierung implementiert (>1000 Zeilen)
+- Template-Beispiel in Skill bereinigt (PLACEHOLDER -> NOTE)
+- Alle Änderungen committed und gepusht
 
 ---
 
