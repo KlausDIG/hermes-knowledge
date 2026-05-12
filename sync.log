@@ -468,3 +468,6 @@ error: Fehler beim Versenden einiger Referenzen nach 'https://github.com/KlausDI
 [2026-05-12 17:39:35] ⚠️ Push fehlgeschlagen: fatal: konnte nicht auf 'https://github.com/KlausDIG/hermes-knowledge.git/' zugreifen: Could not resolve host: github.com
 [2026-05-12 17:39:35] === ✅ Sync Abgeschlossen ===
 
+[2026-05-12 18:00:10] === 🔄 Hermes Knowledge Sync Start ===
+[2026-05-12 18:00:11] 📄 Skill: research/research-paper-writing/SKILL.md
+[2026-05-12 18:00:11] 📄 Skill: devops/git-auto-sync/SKILL.md

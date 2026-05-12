@@ -1,7 +1,7 @@
 ---
 name: git-auto-sync
-version: 3.0.0
-description: Auto-Push + Projekt-Status Tracker. Trackt offene/vollendete Punkte aus Status-Dateien, GitHub Issues, Commit-TODOs, echten Skill-TODOs und Chat-Verlauf.
+version: 3.1.0
+description: Auto-Push + Projekt-Status Tracker + Trend-Tracking. Trackt offene/vollendete Punkte, Trend-Entwicklung über Zeit und Log-Komprimierung.
 tags: [git, sync, cronjob, offline, automation, bash]
 author: KlausDIG
 ---
@@ -70,6 +70,8 @@ SEARCH_PATHS=(
 | 🔇 **SSH non-interactive** | Keine Passwort-Prompts, 10s Connect-Timeout |
 | 🚫 **Rejected-Erkennung** | Stale info / non-fast-forward → manuell markiert, kein Endlos-Retry |
 | 📊 **Projekt-Status-Tracker** | Scant TODO.md, ROADMAP.md, GitHub Issues, Commit-TODOs |
+| 🔍 **Skill-TODO-Extraktor** | Echte Entwickler-TODOs aus Skills (keine Template-Checklisten) |
+| 💬 **Chat-TODO-Integration** | Manuelle Punkte aus `~/.hermes/cache/chat-todos.txt` |
 | 🔄 **Status-Änderungsdetektion** | Cache-basiert, meldet nur bei echten Änderungen |
 | 📝 **Status-Log** | Zentraler Report unter `~/.hermes/logs/project-status.log` |
 
@@ -123,6 +125,10 @@ EXCLUDE_PATTERNS=(
 ```
 Start
   → Lock-File prüfen (oder abbrechen)
+  → 🔄 TODO-Extractor ausführen (optional)
+      → Skills nach echten TODOs scannen (keine Templates)
+      → Chat-TODOs aus ~/.hermes/cache/chat-todos.txt lesen
+      → In Projekt-TODO.md eintragen (clean-rewrite)
   → Alte pending Pushes nachholen
   → Für jedes Repo:
       → 📊 Status scan (TODO.md, ROADMAP.md, GitHub Issues, Commit-TODOs)
@@ -159,6 +165,35 @@ Start
 | Online-Check | `4s` | `curl --max-time 4` |
 | SSH-Connect | `10s` | `ssh -o ConnectTimeout=10` |
 
+## FAQ
+
+### Wie verhindere ich, dass Template-Checklisten als offene Punkte gezählt werden?
+
+Der TODO-Extractor filtert automatisch:
+- Markdown-Tabellen (`^\s*\|`)
+- YAML-Frontmatter (`tags:`, `---`)
+- HTML-Kommentare (`<!--`)
+- Reine Code-Zeilen (nur Symbole)
+- Checklisten ohne konkretes Action-Verb
+
+Nur Zeilen mit **TODO:/FIXME:/BUG:** **+ Action-Verb** (implement/fix/add/...) werden als echt gezählt.
+
+### Wie trage ich manuell ein TODO ein?
+
+Schreibe in `~/.hermes/cache/chat-todos.txt`:
+
+```bash
+echo "Mein neues TODO: Web-Dashboard bauen" >> ~/.hermes/cache/chat-todos.txt
+```
+
+Beim nächsten Lauf wird es automatisch in das passende Projekt-TODO.md eingetragen und die Datei geleert.
+
+### Wo finde ich die extrahierten TODOs?
+
+- **Projekt-TODOs:** `~/Developer/repos/<projekt>/TODO.md`
+- **Chat-TODOs-Quelle:** `~/.hermes/cache/chat-todos.txt`
+- **Extraktor-Log:** `~/.hermes/logs/todo-extractor.log`
+
 ## Abhängigkeiten
 
 - `bash`
@@ -166,3 +201,8 @@ Start
 - `curl`
 - `timeout` (GNU coreutils)
 - `awk`, `grep`, `sort`
+- `python3` (für TODO-Extractor)
+
+## Referenzen
+
+- `references/todo-filtering.md` — Filter-Heuristiken des TODO-Extractors (False-Positive vs. echte TODOs)

@@ -337,7 +337,7 @@ def doi_to_bibtex(doi: str) -> str:
 If you cannot verify a citation:
 
 ```latex
-\cite{PLACEHOLDER_author2024_verify_this}  % TODO: Verify this citation exists
+\cite{PLACEHOLDER_author2024_verify_this}  % NOTE: Verify this citation exists (template example)
 ```
 
 **Always tell the scientist**: "I've marked [X] citations as placeholders that need verification."
