@@ -134,14 +134,14 @@ python3 tools/package_skill.py skills/engineering/ecad-pdf-analyzer
 # Ohne Nachfrage, nur generieren
 python3 tools/package_skill.py skills/engineering/ecad-pdf-analyzer --auto
 
-# Generieren + direkt installieren
+# Generieren + direkt installieren (pip install -e .)
 python3 tools/package_skill.py skills/engineering/ecad-pdf-analyzer --auto --install
 ```
 
 ### Alle Skills auf einmal
 
 ```bash
-# Generiere 82 Projekte aus allen Skills (keine Nachfragen)
+# Generiere N Projekte aus allen Skills (keine Nachfragen)
 python3 tools/package_skill.py --all --auto
 ```
 
@@ -228,3 +228,46 @@ git subtree push --prefix skills/<cat>/<skill> hermes-skill-<name> main
 - `references/cronjob-setup.md` — Hermes Cronjob-Constraints und Pitfalls
 - `references/github-auth-pitfalls.md` — PAT vs SSH, Token-Handling
 - `references/subtree-workflow.md` — Subtree-Command-Reference
+- `references/project-batch-push.md` — Batch-Projekt-Push mit Rate-Limit-Retry
+
+## Kritische Pitfalls
+
+### 1. Subtree split braucht committed Changes
+
+**Ohne Commit → `fatal: no new revisions were found`:**
+
+```bash
+git add projects/
+git commit -m "feat(projects): generate all X standalone projects from skills"
+git push origin main
+```
+
+Erst **dann** `git subtree split --prefix projects/name`.
+
+### 2. GitHub Rate-Limit bei Batch-Repo-Erstellung
+
+**Fehler:** `GraphQL: You have created too many repositories, too quickly.`
+
+**Fix:** ~60 Repos/Stunde Limit. 65 Repos gehen durch, dann 30–60 Min warten.
+Siehe `references/project-batch-push.md` für Cronjob-Retry mit exponentiellem Backoff.
+
+### 3. `--install` Flag wurde nachträglich implementiert
+
+Wenn `package_skill.py --install` nicht erkannt wird, das Script updaten:
+
+```bash
+cd hermes-klausi-hp
+git pull origin main  # holt die neueste Version mit --install
+```
+
+### 4. Cronjob-Script-Pfade
+
+**Pitfall:** Cronjob-Scripts müssen unter `~/.hermes/scripts/` liegen und als **reiner Dateiname** referenziert werden. Keine Pfade im `script`-Parameter.
+
+```bash
+# Richtig
+hermes cronjob create --script skills_sync.py --no-agent
+
+# Falsch
+hermes cronjob create --script /home/user/.hermes/scripts/skills_sync.py
+```
