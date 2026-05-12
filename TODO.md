@@ -3,9 +3,12 @@
 *Aktualisiert: 2026-05-12 07:45*
 
 ## Offen
-- [ ] Web-Dashboard oder Markdown-Report für Projekt-Status bauen
-- [ ] Projekt-Fortschritts-Tracking über Zeit (Trends) implementieren
-- [ ] Auto-Push Log-Komprimierung (alte Logs archivieren)
 
 ## Vollendet
-- [x] Skill git-auto-sync auf v3.0 aktualisieren (Projekt-Status-Tracker, todo-extractor.py integriert)
+- [x] Skill git-auto-sync auf v3.0 aktualisieren
+- [x] Web-Dashboard oder Markdown-Report für Projekt-Status bauen
+- [x] Projekt-Fortschritts-Tracking über Zeit (Trends) implementieren
+- [x] Auto-Push Log-Komprimierung (alte Logs archivieren)
+
+---
+*ALLE TODOs erledigt — Projekt auf aktuellem Stand*
