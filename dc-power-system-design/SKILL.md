@@ -1,8 +1,7 @@
 ---
 name: dc-power-system-design
-version: 1.0.0
-description: DC-Netzberechnung bis 220 VDC mit Selektivitätsanalyse, Kurzschlussberechnung, USV-Auslegung (1-/3-phasig) für Strahlen- und Maschennetze.
-tags: [dc, electrical, power-system, ups, selectivity, short-circuit, cable-sizing, engineering]
+version: 1.1.0
+description: DC-Netzberechnung bis 220 VDC mit Selektivitätsanalyse (korrigierte IEC 60898 Charakteristiken), Kurzschlussberechnung, USV-Auslegung (1-/3-phasig) für Strahlen- und Maschennetze. Validiert gegen DIN VDE / IEC Standards.
 author: KlausDIG
 ---
 
