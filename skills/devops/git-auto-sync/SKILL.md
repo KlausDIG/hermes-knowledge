@@ -1,7 +1,7 @@
 ---
 name: git-auto-sync
-version: 2.0.0
-description: Offline-resilientes Git Auto-Push + Projekt-Status-Tracker. Trackt offene/vollendete Punkte aus Status-Dateien, GitHub Issues und Commit-TODOs.
+version: 3.0.0
+description: Auto-Push + Projekt-Status Tracker. Trackt offene/vollendete Punkte aus Status-Dateien, GitHub Issues, Commit-TODOs, echten Skill-TODOs und Chat-Verlauf.
 tags: [git, sync, cronjob, offline, automation, bash]
 author: KlausDIG
 ---
