@@ -1,6 +1,6 @@
 # Projekt-Status
 
-*Aktualisiert: 2026-05-12 06:29*
+*Aktualisiert: 2026-05-12 06:30*
 
 ## Offen
 - [ ] \cite{PLACEHOLDER_author2024_verify_this}  % TODO: Verify this citation exists
