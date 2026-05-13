@@ -432,4 +432,36 @@ Siehe: `scripts/dc_power_calculator.py`
 # Energetisch: I2t_upstream >= I2t_downstream * 1.5
 ```
 
+---
+
+## 9. Excel-Export der Validierungsergebnisse
+
+Der Skill unterstützt die Generierung eines vollständigen, rechenbaren Excel-Reports mit allen 10 Validierungstests.
+
+### Enthaltene Blätter
+
+| Blatt | Inhalt |
+|-------|--------|
+| Dashboard | 3 Rechner (Kabel DC, Kurzschluss DC, USV) — gelbe Zellen editierbar |
+| Kabelbelastbarkeit | DIN VDE 0298-4 Tabelle mit Reduktionsfaktoren |
+| Zeitstrom-Daten | Kennlinien-Rohdaten IEC 60898 |
+| Diagramme | 2 eingebettete Charts (Zeitstrom, USV-Laufzeit) |
+| Selektivitaet | Prüfrechner Upstream/Downstream (B/C/D) |
+| Maschennetz | 2-Speiser-Rechner (symmetrisch) |
+| Masche_4Speiser | **4-Speiser mit Knotenpotentialverfahren** — 4×U_i, 4×R_i editierbar |
+| Temperatur-Faktoren | Reduktionsfaktoren + kombinierter Rechner |
+| USV-Laufzeit-Daten | Diagrammdaten |
+| Validierung_v1.1 | Referenzergebnisse 10/10 OK |
+| QuickRef-Formeln | 19 Formeln auf einen Blick |
+
+### Script
+
+```bash
+python3 scripts/generate_excel_report.py --output dc_power_v2.1.xlsx
+```
+
+Siehe: `scripts/generate_excel_report.py`
+
+---
+
 # ENDE
