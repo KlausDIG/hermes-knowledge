@@ -165,6 +165,40 @@ rclone via Snap sieht NUR `~/snap/rclone/current/.config/rclone/`, NICHT `~/.con
 
 Der `neytcloud-backup`-Cronjob läuft täglich um 02:00 Uhr und sichert das gesamte Monorepo zu Nextcloud. Kein manuelles Eingreifen nötig — aber langsamer Upload muss beachtet werden (typisch ~40 Min für 7 MB).
 
+### h) Lokale Caches aufräumen (regelmäßige Wartung)
+
+Wenn alles in Nextcloud + GitHub liegt, können lokale Caches gelöscht werden:
+
+```bash
+# Sicher zu löschen (~2,5 GB typisch)
+rm -rf ~/.cache/pip/        # Python pip cache
+rm -rf ~/.cache/n8n/        # n8n cache
+rm -rf ~/.cache/camoufox/   # Camoufox (nur wenn Prozess nicht läuft!)
+rm -rf ~/.cache/uv/         # uv package manager cache
+
+# Überprüfen vor dem Löschen:
+ps aux | grep -i camoufox   # Darf nicht laufen
+ps aux | grep -i n8n        # Darf nicht laufen
+```
+
+**Achtung:** `~/.cache/google-chrome/`, `~/.cache/Homebrew/` nur löschen wenn nicht aktiv genutzt.
+
+### i) Speicherplanung bei eingeschränktem Platz
+
+Aktueller Stand: 233 GB SSD, 89% belegt (~26 GB frei).
+
+**NIE installieren:** PyTorch, Transformers, Sentence-Transformers (je 2-5 GB)
+**Stattdessen verwenden:** llama-cpp (GGUF), fastembed (Rust-core), huggingface_hub
+
+| Tool | Größe | Nutzen |
+|------|-------|--------|
+| LangChain | ~50 MB | ✅ OK |
+| fastembed | ~30 MB | ✅ OK |
+| huggingface_hub | ~10 MB | ✅ OK |
+| llama-cpp-python | ~10 MB | ✅ OK |
+| PyTorch | 2-5 GB | ❌ Nein |
+| Transformers | 2-5 GB | ❌ Nein |
+
 ## References
 
 - `references/backup-sync.md` — Nextcloud-Backup via rclone (Sekundär-Backup)

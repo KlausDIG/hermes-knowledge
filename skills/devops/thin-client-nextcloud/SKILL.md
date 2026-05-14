@@ -33,11 +33,35 @@ Speicherplatz-Schonung durch Cloud-First-Philosophie:
 - **Sekundär:** GitHub (hermes-klausi-hp)
 - **Lokal:** Nur aktive Arbeitskopien + Cache
 
-## Voraussetzungen
+## rclone Snap-Isolation — KRITISCH
 
-- `rclone` (Snap-Version OK, Config via `~/snap/rclone/current/.config/rclone/`)
-- Hermes Skill `nextcloud-rclone-cloud-first` für Setup
-- lokaler Pfad `~/bin/thin-client.sh`
+Die Snap-Version von rclone isoliert Config und Logs.
+
+### Config-Datei (MÜSSEN BEIDE existieren)
+```bash
+~/.config/rclone/rclone.conf                          # Normaler Pfad
+~/snap/rclone/current/.config/rclone/rclone.conf      # Snap-confin Pfad
+```
+
+Bei jeder Config-Änderung → **beide Orte syncen**:
+```bash
+cp ~/.config/rclone/rclone.conf ~/snap/rclone/current/.config/rclone/
+```
+
+### Logging über Snap
+`--log-file="$LOGFILE"` funktioniert **NICHT** (Permission Denied im Snap).
+**Fix:** Pipe zu `tee`:
+```bash
+# FALSCH:
+rclone mount ... --log-file="$LOGFILE" --log-level=INFO
+
+# RICHTIG:
+rclone mount ... 2>&1 | tee -a "$LOGFILE"
+```
+
+### Mount-Limitation
+`--daemon` und `--foreground` Mount über Snap-rclone schlagen fehl (Daemon Timeout).
+**Fix:** `rclone copy` statt Mount — Thin-Client Pattern (get/put/list).
 
 ## Commands
 
@@ -83,6 +107,12 @@ Speicherplatz-Schonung durch Cloud-First-Philosophie:
 | `neytcloud-backup` | 0 2 * * * | Sync `~/hermes-klausi-...` → `neytcloud:Projects/` |
 
 Script: `~/.hermes/scripts/neytcloud-backup.sh`
+
+## References
+
+- `references/sudo-pty-limitation.md` — Warum `sudo` via Hermes nicht funktioniert und Workarounds (Script-Erstellung + manuelle Ausführung)
+- `references/system-cleanup-patterns.md` — RAM-Cleanup, Browser-Memory, ZRAM-Setup
+- `scripts/thin-client.sh` — On-demand Cloud-Zugriff (get/put/list/drop/sync/status)
 
 ## Architektur
 
