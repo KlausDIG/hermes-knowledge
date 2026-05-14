@@ -1,7 +1,7 @@
 ---
 name: git-auto-sync
-version: 3.1.0
-description: Auto-Push + Projekt-Status Tracker + Trend-Tracking. Trackt offene/vollendete Punkte, Trend-Entwicklung über Zeit und Log-Komprimierung.
+version: "3.2.1"
+description: Auto-Push + Projekt-Status Tracker + Trend-Tracking + Recovery bei rejected Push. Committet, pusht, trackt offene/vollendete Punkte, Trend-Entwicklung, und repariert Divergenzen automatisch.
 tags: [git, sync, cronjob, offline, automation, bash]
 author: KlausDIG
 ---
@@ -56,6 +56,44 @@ SEARCH_PATHS=(
     "${HOME}/projects"
     "${HOME}/dev"
 )
+```
+
+## Features
+
+## Recovery bei rejected Push (v3.2.1+)
+
+### Problem bis v3.1: Stale rejected-Entries
+Nach erfolgreichem Push wurden alte `rejected`-Einträge in `~/.hermes/cache/pending-pushes.txt` **nicht** entfernt. Das führte zu dauerhaftem „übersprungen (rejected)“.
+
+**Fix ab v3.1.1 — Sofort-Cleanup** (nach jedem erfolgreichem Push):
+```bash
+if [ -f "$PENDING_FILE" ]; then
+    grep -vFx "$repo|$br" "$PENDING_FILE" > "${PENDING_FILE}.tmp" 2>/dev/null || true
+    grep -vFx "$repo|$br|rejected" "${PENDING_FILE}.tmp" > "${PENDING_FILE}.tmp2" 2>/dev/null || true
+    mv "${PENDING_FILE}.tmp2" "$PENDING_FILE" 2>/dev/null || true
+fi
+```
+
+### Problem bis v3.1.1: Divergenz nach Skills-Sync
+Wenn der Skills-Sync (`skills_sync.py`) während eines anderen Laufes pusht, entsteht Divergenz (local → remote). Der Auto-Push wird rejected und blockiert **für immer**.
+
+**Fix ab v3.2.1 — Auto-Merge Recovery**
+Bei `rejected`-Status in der Pending-Queue:
+1. `git fetch origin <branch>`
+2. `git merge origin/<branch> -m "Auto-merge: Recovery von rejected push"`
+3. Neuen Push versuchen
+4. Bei Erfolg → Eintrag aus Pending-Queue entfernen
+5. Bei Merge-Konflikt → Log-Meldung „manueller Eingriff nötig“, bleibt rejected
+
+### Schnelle Rezepte
+**Pending-Queue leeren (Notfall):**
+```bash
+> ~/.hermes/cache/pending-pushes.txt
+```
+
+**Status checken:**
+```bash
+hermes cronjob list   # Zeigt letzte Lauf-Ergebnisse
 ```
 
 ## Features

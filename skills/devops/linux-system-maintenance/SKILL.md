@@ -45,6 +45,12 @@ Speicher- und Performance-Optimierung auf Systemen mit begrenztem Platz
 - Komprimierter RAM-Swap ist schneller als SSD-Swap
 - +4 GB SSD frei nach Entfernen des alten /swap.img
 
+> ⚠️ **Wichtig:** Nach Firefox-Entfernung (`snap remove firefox`) kann das alte **Profil-Dir** `~/snap/firefox/` noch existieren. Manuell prüfen und bei Bedarf entfernen:
+> ```bash
+> ls -la ~/snap/ | grep firefox
+> rm -rf ~/snap/firefox   # nur wenn Daten nicht mehr nötig
+> ```
+
 ### Einrichten
 ```bash
 # 1. Hermes erstellt Script (bereits in ~/bin/setup-zram.sh)
@@ -169,6 +175,82 @@ snap remove thunderbird --revision=1093
 | rclone-dev | ~16 MB | Nur stable rclone nötig |
 | brave | ~630 MB | Wenn nur Chrome genügt |
 
+## Automatischer Snap-Cleanup (Cronjob)
+
+Deaktivierte Snap-Revisionen werden manuell oft vergessen. Ein **wöchentlicher Cronjob** bereinigt automatisch.
+
+### Script erstellen
+```bash
+mkdir -p ~/.hermes/scripts
+cat > ~/.hermes/scripts/snap-cleanup.sh << 'SNAPSCRIPT'
+#!/usr/bin/env bash
+set -euo pipefail
+LOG_FILE="$HOME/.local/state/snap-cleanup.log"
+mkdir -p "$(dirname "$LOG_FILE")"
+exec >>"$LOG_FILE" 2>&1
+
+echo "=========================================="
+echo "Snap-Cleanup gestartet: $(date -Iseconds)"
+echo "=========================================="
+
+DISABLED=$(snap list --all | grep 'deaktiviert' || true)
+
+if [ -z "$DISABLED" ]; then
+    echo "Keine deaktivierten Snaps gefunden."
+    exit 0
+fi
+
+echo "Gefundene deaktivierte Snaps:"
+echo "$DISABLED"
+echo "=========================================="
+
+while IFS= read -r line; do
+    NAME=$(echo "$line" | awk '{print $1}')
+    REV=$(echo "$line" | awk '{print $3}')
+    if [ -n "$NAME" ] && [ -n "$REV" ]; then
+        echo "→ Entferne $NAME (Revision $REV)..."
+        if sudo snap remove "$NAME" --revision="$REV" 2>&1; then
+            echo "  ✓ $NAME Rev $REV entfernt"
+        else
+            echo "  ⚠️ Fehler bei $NAME Rev $REV (vermutlich sudo erforderlich)"
+        fi
+    fi
+done <<< "$DISABLED"
+
+echo "Snap-Cleanup beendet: $(date -Iseconds)"
+echo "=========================================="
+SNAPSCRIPT
+chmod +x ~/.hermes/scripts/snap-cleanup.sh
+```
+
+### Cronjob erstellen
+```bash
+hermes cronjob create \
+  --name snap-cleanup \
+  --schedule "0 4 * * 0" \
+  --script snap-cleanup.sh \
+  --no-agent
+```
+
+Oder via `cronjob` tool:
+- `action`: `create`
+- `name`: `snap-cleanup`
+- `no_agent`: `true`
+- `schedule`: `0 4 * * 0` (Sonntag 04:00)
+- `script`: `snap-cleanup.sh`
+
+### Hinweis: sudo erforderlich
+Snap-Revisions-Entfernung braucht `root`. Optionen:
+1. **Manuell:** `sudo snap remove <name> --revision=<rev>`
+2. **Automation mit visudo:** `klausd ALL=(ALL:ALL) NOPASSWD: /usr/bin/snap`
+
+### Verifizierung
+```bash
+cat ~/.local/state/snap-cleanup.log          # Letzte Lauf-Logs
+snap list --all | grep deaktiviert            # Sollte leer sein
+du -sh /var/lib/snapd/snaps                   # Physische Größe
+```
+
 ### Was NIEMALS entfernt werden darf
 | Snap | Grund |
 |------|-------|
@@ -189,7 +271,7 @@ snap remove <name> --revision=<rev>  # Nur alte Revision
 **Was es macht:**
 1. Alte Hermes-Logs (>30 Tage)
 2. Browser-/App-Caches (keine Configs!)
-3. Alte Snap-Revisionen
+3. Alte Snap-Revisionen (manuelle Liste)
 4. Homebrew cleanup + autoremove
 5. Papierkorb leeren
 6. /tmp User-Dateien (>1 Tag)
