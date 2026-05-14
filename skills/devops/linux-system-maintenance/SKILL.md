@@ -72,7 +72,7 @@ free -h
 
 ## Speicheranalyse
 
-### Schnellübersicht
+### Schnellübersicht (schnell, nie Timeouts)
 ```bash
 df -h /                    # SSD-Status
 cat /proc/swaps            # Swap-Status
@@ -80,7 +80,21 @@ free -h                    # RAM + Swap
 du -sh ~/* 2>/dev/null | sort -rh | head -10   # Größte Home-Ordner
 ```
 
-### Detaillierte Analyse (User-Verzeichnisse)
+### Systemebene (gezielte Pfade — `du -sh /*` timed out oft!)
+```bash
+du -sh /usr /var /opt /snap /home 2>/dev/null
+du -sh /var/lib/* 2>/dev/null | sort -rh | head -10
+du -sh /snap/*/current 2>/dev/null | sort -rh | head -10
+```
+
+### Snap-Platz detailliert (oft der größte Block!)
+```bash
+du -sh /var/lib/snapd/snaps              # Physische .snap-Dateien
+ls -lhS /var/lib/snapd/snaps/ | head -10 # Größte einzelne Snaps
+snap list --all | grep deaktiviert        # Alte Revisionen
+```
+
+### User-Ordner detailliert
 ```bash
 for dir in ~/.hermes ~/snap ~/.local ~/.cache ~/.linuxbrew ~/.config ~/Downloads ~/bin ~/workspace; do
     [ -d "$dir" ] && du -sh "$dir" 2>/dev/null
@@ -115,7 +129,39 @@ snap remove brave --purge
 
 ## Snap-Reduktion
 
-### Was sicher entfernt werden kann
+### Alte Snap-Revisionen entfernen (AM SICHERSTEN)
+
+Snap behält alte Revisionen als Backup — die können **GBs** belegen.
+
+**Anzeigen:**
+```bash
+snap list --all | grep deaktiviert
+```
+
+**Wo die Daten physikalisch liegen:**
+```bash
+ls -lhS /var/lib/snapd/snaps/
+# -> z.B. code_238.snap (380 MB), thunderbird_1093.snap (228 MB)
+```
+
+**Entfernen (nur deaktivierte Revisionen!):**
+```bash
+snap remove <name> --revision=<rev>
+# Beispiel:
+snap remove code --revision=238
+snap remove thunderbird --revision=1093
+```
+
+**Was erwartet wird:**
+| Snap | Revision | Größe | Status |
+|------|----------|-------|--------|
+| code | 238 | ~380 MB | deaktiviert → entfernbar |
+| thunderbird | 1093 | ~228 MB | deaktiviert → entfernbar |
+
+> ⚠️ **NIE aktive Revisionen entfernen!** Nur Snapps mit Status `deaktiviert`.
+> Aktive Revision hat **kein** "deaktiviert"-Label.
+
+### Gesamte Snaps entfernen
 | Snap | Größe | Erklärung |
 |------|-------|-----------|
 | firefox | ~8,3 GB | Siehe Browser-Reduktion |
@@ -131,9 +177,10 @@ snap remove brave --purge
 | rclone (stable) | Backup-Sync |
 | code | VS Code: Editor |
 
-### Command
+### Commands
 ```bash
-snap remove <name> --purge
+snap remove <name> --purge          # Ganzen Snap entfernen
+snap remove <name> --revision=<rev>  # Nur alte Revision
 ```
 
 ## Automatisches Cleanup (Cronjob)
