@@ -108,10 +108,14 @@ rclone mount ... 2>&1 | tee -a "$LOGFILE"
 
 Script: `~/.hermes/scripts/neytcloud-backup.sh`
 
+### Bash `local` in bedingtem Kontext
+`local PID=$!` schlägt in `case`-Blöcken fehl (` Kann nur innerhalb einer Funktion benutzt werden`).
+**Fix:** Ohne `local` oder innerhalb von Funktionen.
+
 ## References
 
 - `references/sudo-pty-limitation.md` — Warum `sudo` via Hermes nicht funktioniert und Workarounds (Script-Erstellung + manuelle Ausführung)
-- `references/system-cleanup-patterns.md` — RAM-Cleanup, Browser-Memory, ZRAM-Setup
+- `references/system-cleanup-patterns.md` — RAM-Cleanup, Browser-Memory, ZRAM-Setup, Snap-Reduction
 - `scripts/thin-client.sh` — On-demand Cloud-Zugriff (get/put/list/drop/sync/status)
 
 ## Architektur

@@ -74,7 +74,19 @@ git --git-dir=$HOME/.cfg --work-tree=$HOME status --short
 # Falls Änderungen: auto-commit + push
 ```
 
-### 6. Speicherwarnung
+### 7. ZRAM-Check
+```bash
+if ! grep -q "zram" /proc/swaps 2>/dev/null; then
+    # WARNUNG: ZRAM nicht aktiv, System langsam
+fi
+```
+
+### 8. Swap-Datei-Check
+```bash
+if [ -f /swap.img ]; then
+    # HINWEIS: Altes Swap-File noch vorhanden — +4 GB SSD bei Entfernung
+fi
+```
 ```bash
 PERCENT=$(df / | tail -1 | awk '{print $5}' | tr -d '%')
 if [ "$PERCENT" -gt 90 ]; then
