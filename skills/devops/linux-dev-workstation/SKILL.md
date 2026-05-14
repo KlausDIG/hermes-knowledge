@@ -196,10 +196,63 @@ git config --global init.defaultBranch main
 
 Create 3 standard recurring tasks:
 1. **`daily-sync`** (09:00) — `brew update`, `brew outdated`, `df -h`
-2. **`skill-discovery`** (10:00) — check for new CLI tools / extensions
+2. **`skill-discovery`** (10:00) — check for new CLI tools / extensions (see reference workflow below)
 3. **`self-update`** (11:00) — audit configs, suggest refactorings, log to `~/Documents/ProjectJournals/weekly/`
 
 All write to `~/Documents/ProjectJournals/` directory tree.
+
+### Skill-Discovery Workflow (automated)
+
+See `references/skill-discovery-workflow.md` for the full runnable recipe. Summary:
+
+1. **Query local tool versions** with `which --version` or `<tool> --version`
+2. **Query latest upstream versions** via GitHub API:
+   ```bash
+   curl -s https://api.github.com/repos/OWNER/REPO/releases/latest | jq -r '.tag_name'
+   ```
+3. **Query VS Code: updates** via the official update API:
+   ```bash
+   curl -s https://update.code.visualstudio.com/api/update/linux-x64/stable/<CURRENT_COMMIT> | jq -r '.productVersion'
+   ```
+4. **Compare and flag** anything where local ≠ latest
+5. **Inventory missing high-value tools** from the baseline set (fzf, eza, zoxide, bat, fd, ripgrep, starship, duf, hyperfine, tokei, just, gping, ouch, jless)
+6. **Check VS Code: extensions** with `code --list-extensions` against known useful extensions
+7. **Deliver a compact table** (installed vs latest, status emoji) and actionable `brew install` / `gh upgrade` / `uv self update` commands
+
+Key API endpoints for common tools:
+| Tool | API endpoint |
+|------|-------------|
+| gh | `https://api.github.com/repos/cli/cli/releases/latest` |
+| uv | `https://api.github.com/repos/astral-sh/uv/releases/latest` |
+| rclone | `https://api.github.com/repos/rclone/rclone/releases/latest` |
+| jq | `https://api.github.com/repos/jqlang/jq/releases/latest` |
+| fzf | `https://api.github.com/repos/junegunn/fzf/releases/latest` |
+| bat | `https://api.github.com/repos/sharkdp/bat/releases/latest` |
+| eza | `https://api.github.com/repos/eza-community/eza/releases/latest` |
+| zoxide | `https://api.github.com/repos/ajeetdsouza/zoxide/releases/latest` |
+| atuin | `https://api.github.com/repos/atuinsh/atuin/releases/latest` |
+
+### VS Code: Extension Discovery
+
+List installed: `code --list-extensions`
+
+Useful baseline extensions for this stack:
+- `eamodio.gitlens` — enhanced Git lens
+- `github.vscode-pull-request-github` — PR workflow inside editor
+- `esbenp.prettier-vscode` — opinionated formatting
+- `ms-python.vscode-pylance` — Python language server
+- `ms-python.black-formatter` — deterministic Python formatting
+- `ms-vscode-remote.remote-containers` — Dev Containers
+- `ms-vscode-remote.remote-ssh` — Remote SSH
+- `streetsidesoftware.code-spell-checker` — catch typos in docs/comments
+
+Install sequentially (never parallel) to avoid VS Code: extension-directory corruption:
+```bash
+for ext in eamodio.gitlens github.vscode-pull-request-github esbenp.prettier-vscode; do
+  code --install-extension "$ext" --force 2>&1 | grep -E "installed|failed|already"
+  sleep 1
+done
+```
 
 ---
 
@@ -232,3 +285,4 @@ curl -fsSL https://bun.sh/install | bash
 - `scripts/auto-commit-poll.py` — Polling-based auto-commit daemon (no watchdog dependency)
 - `templates/systemd-user-service.ini` — Starter template for a systemd user daemon
 - `templates/shell-rc-fragment.sh` — Bash RC fragment with all PATHs, completions, and aliases
+- `references/skill-discovery-workflow.md` — Full daily tool-audit recipe (versions, extensions, missing tools)
