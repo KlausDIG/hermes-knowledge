@@ -262,8 +262,8 @@ du -sh /var/lib/snapd/snaps                   # Physische Größe
 |------|-------|
 | core / core20 / core22 / core24 | Snap-Grundsystem |
 | snapd | Snap-Engine |
-| rclone (stable) | Backup-Sync |
-| code | VS Code: Editor |
+### Werkzeuge für interaktive Analyse
+Siehe `references/disk-analysis-tools.md` für `ncdu` (via Homebrew), typische Platzfresser auf diesem System, und wöchentliche Platzverlust-Erwartungswerte.
 
 ## `.bash_history` Explosion auf Servern (Root-Cause: 38 GB)
 
@@ -274,30 +274,52 @@ Automatisierte Skripte (PM2, Cronjobs, Bots), die als **root** laufen, schreiben
 
 ### Erkennung
 ```bash
+# Schnell auf VPS:
 ssh hostinger "du -sh /root/.bash_history"
 # Oder lokal:
 du -sh ~/.bash_history
+# Alarm wenn > 100 MB
 ```
 
-### Sofort-Fix
+### Sofort-Fix (erfordert sudo)
+Hermes kann `sudo` nicht interaktiv ausführen (kein PTY). Script erstellen, User führt aus:
+
 ```bash
-ssh hostinger '
-> /root/.bash_history
-history -c
-'
+cat > ~/bin/clear-bash-history.sh << 'EOF'
+#!/bin/bash
+# Bash-History leeren (Server)
+for userdir in /home/* /root; do
+    histfile="$userdir/.bash_history"
+    [ -f "$histfile" ] || continue
+    size=$(du -sh "$histfile" 2>/dev/null | cut -f1)
+    echo "Vorher: $histfile = $size"
+    > "$histfile"
+    history -c 2>/dev/null || true
+    echo "Nachher: $histfile geleert"
+done
+EOF
+# Dann manuell:
+sudo bash ~/bin/clear-bash-history.sh
 ```
+
 **Ergebnis:** +38 GB frei, Speicher von 99% → 62%.
 
-### Dauerhafte Prävention
-```bash
-ssh hostinger '
-cat >> /root/.bashrc << "EOF"
+### Dauerhafte Prävention (Server-Setup)
+Bei jeder neuen Server-Einrichtung — Hermes erstellt Script, User führt aus:
 
-# Limitiere Bash-Historie (verhindert GB-große Dateien)
-HISTSIZE=1000
-HISTFILESIZE=2000
+```bash
+cat > ~/bin/set-history-limits.sh << 'EOF'
+#!/bin/bash
+for profile in /etc/profile /root/.bashrc; do
+    [ -f "$profile" ] || continue
+    grep -q "HISTSIZE=" "$profile" && continue
+    echo -e "\n# Limitiere Bash-Historie (verhindert GB-Explosionen)" >> "$profile"
+    echo "HISTSIZE=1000" >> "$profile"
+    echo "HISTFILESIZE=2000" >> "$profile"
+    echo "✅ Limits in $profile gesetzt"
+done
 EOF
-'
+sudo bash ~/bin/set-history-limits.sh
 ```
 
 ### Warum passiert das?
@@ -311,9 +333,11 @@ EOF
 ```bash
 ssh hostinger "ls -lh /root/.bash_history"
 # Sollte: 0 oder wenige KB
+ssh hostinger "grep HISTSIZE /root/.bashrc"
+# Sollte: HISTSIZE=1000, HISTFILESIZE=2000
 ```
 
-Siehe `references/vps-bash-history-explosion.md` für vollständige Post-Mortem.
+Siehe `references/vps-bash-history-explosion.md` für vollständiges Post-Mortem.
 
 ## Automatisches Cleanup (Cronjob)
 ```bash
