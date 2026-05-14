@@ -15,7 +15,7 @@ tags:
   - offline
   - retry
   - backup
-version: "1.0.0"
+version: "1.1.0"
 related_skills:
   - github-repo-management
   - linux-dev-workstation
@@ -199,9 +199,35 @@ export GIT_SSH_COMMAND="ssh -o ConnectTimeout=10 -o BatchMode=yes ..."
 ### D. SSH-Keys ohne Passphrase nötig
 Wenn Repos via SSH geklont sind, muss der Key ohne Passphrase oder mit ssh-agent agieren, sonst blockiert `BatchMode=yes`.
 
+### F. Push rejected (non-fast-forward)
+Bei aktivem Entwickeln an mehreren Stellen (z.B. Hermes + Cronjob) kann `main` auf GitHub vor dem lokalen Stand liegen. Das Script selbst kann nicht rebase — es bricht ab.
+**Fix:** Vor manuellem Push immer rebase:
+```bash
+git pull origin main --rebase
+git push origin main
+```
+**Symptom:** `! [rejected] main -> main (non-fast-forward)` → Divergenz.
+
+### G. Monorepo-Setup (hermes-klausi-hp)
+Wenn der User ein zentrales Umbrella-Repo wie `KlausDIG/hermes-klausi-hp` nutzt:
+- **Neues Projekt** → `mkdir projects/<name>/` im Monorepo, NICHT separates Repo erstellen
+- **Suchpfad** → `${HOME}/hermes-klausi-hp` (nicht `${HOME}/hermes-klausi-hp/hermes-klausi-hp` — `find` findet `.git` automatisch)
+- **Commit** → `git add projects/<name>/`, `git commit -m "feat(projects): add <name>"`
+- **Push** → `git pull origin main --rebase && git push origin main`
+- **Danach** → Cronjob übernimmt Auto-Push
+
+### H. Git-Identität korrekt setzen
+Für KlausDIG:
+```bash
+git config --global user.name "KlausDIG"
+git config --global user.email "KlausDIG@users.noreply.github.com"
+```
+**NIE** verwenden: `agent@gridtrace.local`, `Project Autonomous Agent`
+
 ---
 
 ## References
 
 - `scripts/auto-push-projects.sh` — Vollständige Referenz-Implementierung (copy-ready)
 - `references/retry-logic-explained.md` — Detaillierte Erklärung der Retry-Heuristik
+- `references/klausdig-setup-notes.md` — Session-spezifische Setup-Details (v3.1 Script, SEARCH_PATHS, Git-Identität, Umbrella-Repo hermes-klausi-hp)

@@ -501,18 +501,51 @@ for g in json.load(sys.stdin):
     print(f\"  {g['id']}  {g['description'] or '(no desc)':40}  {files}\")"
 ```
 
-## 11. Syncing Local Content to an Existing Repo
+## 11. Identity and User Preferences (Git Config)
 
-When the user says "use my existing repo" but doesn't give the name, discover it:
+Before making any commits, check the existing Git identity. Do NOT use generic or fallback identities like `agent@gridtrace.local` or `Project Autonomous Agent` without explicit user consent.
+
 ```bash
-# Search local filesystem for repos with GitHub remotes
+# Check current identity
+git config --global user.name
+git config --global user.email
+
+# If either is missing or looks generic/agent-like, replace with the GitHub handle:
+GH_USER=$(gh api user --jq '.login' 2>/dev/null || echo "")
+if [ -n "$GH_USER" ]; then
+  git config --global user.name "$GH_USER"
+  git config --global user.email "${GH_USER}@users.noreply.github.com"
+fi
+```
+
+**Critical:** If the user corrects an identity (e.g., "Bitte nicht gridtrace verwenden"), respect that immediately and update the skill.
+
+## 12. Syncing Local Content to an Existing Repo
+
+When the user says "use my existing repo" or gives a specific URL like `https://github.com/OWNER/REPO`:
+
+1. **Discover locally:**
+```bash
+find ~ -maxdepth 3 -type d -name "REPO_NAME" 2>/dev/null
 find ~ -maxdepth 3 -name ".git" -type d 2>/dev/null | while read d; do
   cd "$d/.."
   git remote -v 2>/dev/null | grep "github.com" | head -2
   echo "---"
 done
-# Also check gh auth status for the logged-in username
 gh auth status 2>/dev/null
+```
+
+2. **If user names a specific repo URL** — treat it as the canonical source. Clone or add remote to that exact repo rather than guessing or creating a new one.
+
+3. **Subprojects / Unterprojekte in an umbrella repo:**
+When the user wants content integrated as a subproject under an existing repo (e.g., `hermes-klausi-hp/projects/dc-power-calculator/`):
+```bash
+# Check if umbrella repo exists locally
+ls ~/REPO_NAME/projects/ 2>/dev/null || echo "No projects dir yet"
+# Create subdirectory and copy content
+mkdir -p ~/REPO_NAME/projects/NEW_SUBPROJECT/
+cp -r ~/source-content/* ~/REPO_NAME/projects/NEW_SUBPROJECT/
+cd ~/REPO_NAME && git add projects/NEW_SUBPROJECT && git commit -m "Add NEW_SUBPROJECT"
 ```
 
 For the full workflow (empty repo handling, subdirectory layout, push steps), see:

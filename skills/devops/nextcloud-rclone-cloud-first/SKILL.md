@@ -8,7 +8,7 @@ description: |
 toolsets:
   - terminal
   - file
-version: "1.0.0"
+version: "1.1.0"
 category: devops
 ---
 
@@ -190,13 +190,13 @@ systemctl --user restart nextcloud-mount
 
 ## Sicherheit
 
+## Sicherheit
+
 - ✅ Passwort in rclone.conf **verschlüsselt**
 - ✅ .env Datei mit **Berechtigung 600**
 - ✅ Keine Credentials im Chat
 - ✅ App-Token (nicht Hauptpasswort)
 - ✅ Dotfiles bleiben lokal
-
----
 
 ## Integration mit DIN 5008 Skill
 
@@ -210,10 +210,23 @@ cp ~/Documents/DIN5008_Output/Brief*.html ~/Documents/DIN5008/
 rclone sync ~/Documents/DIN5008_Output nextcloud:/Dokumente/DIN5008
 ```
 
----
+## Snap-Isolation und Workarounds
+
+Siehe `references/snap-isolation-workaround.md` für Details:
+- Config muss unter `~/snap/rclone/current/.config/rclone/` liegen
+- `--log-file` funktioniert nicht unter Snap → `tee` verwenden
+- Symlinks können blockiert werden
+
+## References
+
+- `references/deferred-setup-pattern.md` — "save for later" Workflow
+- `references/snap-isolation-workaround.md` — rclone Snap-Constraints
+- `monorepo-project-workflow` Skill — Backup-Sync Integration
 
 ## Version
 
 - **Skill:** nextcloud-rclone-cloud-first v1.0.0
+- **Rclone:** (via Snap)
+- **Systemd:** User-Service
 - **Rclone:** (via Snap)
 - **Systemd:** User-Service
