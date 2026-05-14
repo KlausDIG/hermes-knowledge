@@ -153,10 +153,28 @@ Sobald Docker Desktop läuft, startet es Container **NICHT automatisch** (nur we
 
 ```bash
 cd ~/hermes-devops-ai-environment
+# Override MUSS mit angegeben werden!
 docker compose -f docker-compose.control.yml -f docker-compose.override.yml up -d
 ```
 
-**Wichtig:** Die `override.yml` mit den Hermes-Skills/Memory-Mounts muss beim Start mit angegeben werden!
+**Wichtig:** Die `override.yml` mit den Hermes-Skills/Memory-Mounts muss beim Start mit `-f` angegeben werden! Ohne `-f docker-compose.override.yml` fehlen die Mounts.
+
+### rclone Config-Format (Nextcloud WebDAV)
+
+**Falsch** (führt zu "the remote url looks incorrect"):
+```
+url = https://nx95358.your-storageshare.de/apps/files/folders/...
+```
+
+**Richtig** (muss `/dav/files/USERNAME/` sein):
+```
+[nextcloud]
+type = webdav
+url = https://nx95358.your-storageshare.de/remote.php/dav/files/klausi/
+vendor = nextcloud
+user = klausi
+pass = <DEIN_PASS>
+```
 
 ### Sync-Kompatibilität
 | Sync-Richtung | Funktioniert | Bemerkung |
