@@ -87,6 +87,9 @@ du -sh ~/* 2>/dev/null | sort -rh | head -10   # Größte Home-Ordner
 ```
 
 ### Systemebene (gezielte Pfade — `du -sh /*` timed out oft!)
+> ⚠️ **Pitfall:** Auf langsamen SSDs mit vielen Dateien timed `du -sh /` oder `du -sh /home` nach 60s aus.
+> Stattdessen gezielte Pfade scannen — siehe `references/disk-analysis-tools.md`.
+
 ```bash
 du -sh /usr /var /opt /snap /home 2>/dev/null
 du -sh /var/lib/* 2>/dev/null | sort -rh | head -10
@@ -106,6 +109,9 @@ for dir in ~/.hermes ~/snap ~/.local ~/.cache ~/.linuxbrew ~/.config ~/Downloads
     [ -d "$dir" ] && du -sh "$dir" 2>/dev/null
 done | sort -rh | head -15
 ```
+
+### Werkzeuge für interaktive Analyse
+Siehe `references/disk-analysis-tools.md` für `ncdu` (via Homebrew), typische Platzfresser auf diesem System, und wöchentliche Platzverlust-Erwartungswerte.
 
 ## Browser-Reduktion (größter RAM-Verursacher)
 

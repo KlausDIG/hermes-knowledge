@@ -48,19 +48,24 @@ Oder via `cronjob` tool:
 
 ### 3. Suchpfade anpassen (optional)
 
-Im Script, Array `SEARCH_PATHS`, z.B.:
+### Notfall-Workarounds
 
+**Pending-Queue leeren (sofort):**
 ```bash
-SEARCH_PATHS=(
-    "${HOME}/Developer/repos"
-    "${HOME}/projects"
-    "${HOME}/dev"
-)
+> ~/.hermes/cache/pending-pushes.txt
 ```
 
-## Features
+**Manueller Merge:**
+```bash
+cd ~/hermes-klausi-hp/hermes-klausi-hp  # oder entsprechendes Repo
+git fetch origin
+git merge origin/main --no-edit
+git push
+```
 
 ## Recovery bei rejected Push (v3.2.1+)
+
+Siehe `references/rejected-recovery-incident-2026-05-14.md` für vollständige Post-Mortem, Root-Cause, Verifikations-Logs und Code-Details.
 
 ### Problem bis v3.1: Stale rejected-Entries
 Nach erfolgreichem Push wurden alte `rejected`-Einträge in `~/.hermes/cache/pending-pushes.txt` **nicht** entfernt. Das führte zu dauerhaftem „übersprungen (rejected)“.
