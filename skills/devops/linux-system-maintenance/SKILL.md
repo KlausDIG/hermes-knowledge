@@ -265,7 +265,57 @@ du -sh /var/lib/snapd/snaps                   # Physische Größe
 | rclone (stable) | Backup-Sync |
 | code | VS Code: Editor |
 
-### Commands
+## `.bash_history` Explosion auf Servern (Root-Cause: 38 GB)
+
+### Problem
+Automatisierte Skripte (PM2, Cronjobs, Bots), die als **root** laufen, schreiben jeden Befehl in `.bash_history`. Bei dauerhaftem Betrieb wächst die Datei auf **Zehn-GB-Niveau**.
+
+**Realer Fall:** Hostinger VPS — `/root/.bash_history` = **38,4 GB** bei 96 GB SSD.
+
+### Erkennung
+```bash
+ssh hostinger "du -sh /root/.bash_history"
+# Oder lokal:
+du -sh ~/.bash_history
+```
+
+### Sofort-Fix
+```bash
+ssh hostinger '
+> /root/.bash_history
+history -c
+'
+```
+**Ergebnis:** +38 GB frei, Speicher von 99% → 62%.
+
+### Dauerhafte Prävention
+```bash
+ssh hostinger '
+cat >> /root/.bashrc << "EOF"
+
+# Limitiere Bash-Historie (verhindert GB-große Dateien)
+HISTSIZE=1000
+HISTFILESIZE=2000
+EOF
+'
+```
+
+### Warum passiert das?
+| Ursache | Mechanismus |
+|---------|-------------|
+| PM2-Apps als root | `pm2 start` in root-Cron → jeder Node-Befehl wird geloggt |
+| Cronjobs mit `bash -c` | Jeder Cron-Aufruf landet in der Historie |
+| Interaktive root-Sessions | Lange manuelle Sessions häufen Einträge an |
+
+### Verifizierung nach Fix
+```bash
+ssh hostinger "ls -lh /root/.bash_history"
+# Sollte: 0 oder wenige KB
+```
+
+Siehe `references/vps-bash-history-explosion.md` für vollständige Post-Mortem.
+
+## Automatisches Cleanup (Cronjob)
 ```bash
 snap remove <name> --purge          # Ganzen Snap entfernen
 snap remove <name> --revision=<rev>  # Nur alte Revision
