@@ -48,16 +48,63 @@ tags: [tailscale, mesh, vps, ae8, mac-mini, sync, network]
 
 ## Mac Mini — Docker-basierte Hermes/AI-Umgebung
 
-> ⚠️ **Wichtig:** Der Mac Mini nutzt eine **eigenständige Docker-Compose-Umgebung** (`hermes-devops-ai-environment`), die NICHT das Standard-`~/.hermes/`-Layout verwendet.
+> ⚠️ **Wichtig:** Der Mac Mini nutzt eine **eigenständige Docker-Compose-Umgebung** (`hermes-devops-ai-environment`), die NICHT das Standard-`~/.hermes/`-Layout verwendet. Für Cloud-First-Sync muss ein `docker-compose.override.yml` die Skills/Memory in die Container mounten.
 
 ### Architektur
 | Aspekt | Standard-Hermes | Mac Mini Docker |
 |--------|----------------|-----------------|
 | Hermes-Agent | `~/.hermes/` nativ | ❌ Kein nativer Agent |
-| Skills | `~/.hermes/skills/` | ❌ Nicht gemountet |
-| Memory | `~/.hermes/memory/` | ❌ Nicht gemountet |
+| Skills | `~/.hermes/skills/` | ✅ Via Override gemountet |
+| Memory | `~/.hermes/memory/` | ✅ Via Override gemountet |
 | Docker-Container | — | ✅ **12 Services** |
 | Telegram-Bot | — | ✅ **Funktioniert** |
+| Cloud-Sync | Hostinger + Nextcloud | ✅ Git pull + rclone + rsync |
+
+### Docker-Compose Override für Hermes-Skills/Memory
+
+Erstelle `~/hermes-devops-ai-environment/docker-compose.override.yml`:
+
+```yaml
+services:
+  control-gateway:
+    volumes:
+      - /Users/klaus/.hermes/skills:/workspace/hermes-skills:ro
+      - /Users/klaus/.hermes/memory:/workspace/hermes-memory:ro
+
+  telegram-bot:
+    volumes:
+      - /Users/klaus/.hermes/skills:/workspace/hermes-skills:ro
+```
+
+Anwenden:
+```bash
+cd ~/hermes-devops-ai-environment
+docker compose -f docker-compose.control.yml -f docker-compose.override.yml up -d
+```
+
+### rclone auf macOS installieren (ohne Homebrew)
+
+```bash
+# Download + Installieren nach ~/bin/ (kein sudo nötig)
+cd /tmp
+curl -sLO https://downloads.rclone.org/rclone-current-osx-arm64.zip
+unzip -q rclone-current-osx-arm64.zip
+cp rclone-*-osx-arm64/rclone ~/bin/rclone
+chmod +x ~/bin/rclone
+
+# PATH in ~/.zshrc ergänzen:
+echo 'export PATH="$HOME/bin:$PATH"' >> ~/.zshrc
+
+# Nextcloud-Config korrigieren (wichtig: /dav/files/USER/ statt WebDAV-URL):
+cat > ~/.config/rclone/rclone.conf <<EOF
+[nextcloud]
+type = webdav
+url = https://nx95358.your-storageshare.de/remote.php/dav/files/klausi/
+vendor = nextcloud
+user = klausi
+pass = <DEIN_PASS>
+EOF
+```
 
 ### Container-Stack (`docker-compose.control.yml`)
 | # | Container | Status | Port | Zweck |
