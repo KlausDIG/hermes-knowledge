@@ -244,3 +244,4 @@ Beim nächsten Lauf wird es automatisch in das passende Projekt-TODO.md eingetra
 ## Referenzen
 
 - `references/todo-filtering.md` — Filter-Heuristiken des TODO-Extractors (False-Positive vs. echte TODOs)
+- `references/rejected-recovery-incident-2026-05-14.md` — Post-Mortem: Divergenz durch Skills-Sync-Parallelität, Recovery-Strategie
