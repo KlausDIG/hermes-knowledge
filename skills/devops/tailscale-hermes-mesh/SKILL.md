@@ -121,9 +121,13 @@ EOF
 | 10 | `cadvisor` | Up (healthy) | **8081** | Container Metrics |
 | 11 | `alertmanager` | Up | **9093** | Alert Manager |
 | 12 | `node-exporter` | Up | **9100** | System Metrics |
+## Docker-Desktop macOS Troubleshooting
 
-### Docker-Desktop Troubleshooting
-Falls Docker Desktop auf macOS hängt ("Not Responding", `docker ps` timeout):
+### Symptom: `docker ps` timeout, GUI läuft aber Engine nicht
+
+**Diagnose:** Docker Desktop ist in einem "Not Responding" Zustand — die GUI startet, aber die Docker-Engine antwortet nicht. Das passiert oft nach macOS-Updates oder wenn die Docker-VM nicht sauber startet.
+
+**Hinweis:** Wenn der Container-Stack vorher lief und Docker Desktop hängt, ist die **einfachste Lösung** oft ein Neustart der App (nicht des ganzen Systems).
 
 ```bash
 # Schritt 1: Docker Desktop beenden
@@ -142,6 +146,17 @@ export PATH="/usr/local/bin:$PATH"
 docker ps
 docker compose -f ~/hermes-devops-ai-environment/docker-compose.control.yml ps
 ```
+
+### Container-Stack nach Docker-Neustart wiederherstellen
+
+Sobald Docker Desktop läuft, startet es Container **NICHT automatisch** (nur wenn `restart: unless-stopped` konfiguriert ist). Prüfe:
+
+```bash
+cd ~/hermes-devops-ai-environment
+docker compose -f docker-compose.control.yml -f docker-compose.override.yml up -d
+```
+
+**Wichtig:** Die `override.yml` mit den Hermes-Skills/Memory-Mounts muss beim Start mit angegeben werden!
 
 ### Sync-Kompatibilität
 | Sync-Richtung | Funktioniert | Bemerkung |
@@ -261,10 +276,61 @@ ssh hostinger  # oder ssh root@187.77.65.191
 3. **Hermes Agent** starten: `systemctl start hermes-agent`
 4. **Mesh-Sync** triggern: `/root/hermes-sync-mesh.sh`
 
-### "Mac Mini nicht erreichbar"
-1. **Tailscale-Status** prüfen: `tailscale status` auf Mac Mini
-2. **SSH-Key** prüfen: `ssh -i ~/.ssh/id_macmini klaus@100.93.33.84`
-3. **Ollama** prüfen: `curl http://100.93.33.84:11434/api/tags`
+### Codex-Worker in Restart-Loop
+
+**Symptom:** `docker logs` zeigt endlos:
+```
+[ollama-coder-worker] processing ...
+python3: can't open file '/worker/run_ollama.py': [Errno 2] No such file or directory
+```
+
+**Ursache:** Die Datei `run_ollama.py` fehlt im `workers/codex/`-Verzeichnis oder wurde nicht ins Docker-Image kopiert.
+
+**Fix:**
+
+```bash
+cd ~/hermes-devops-ai-environment
+
+# 1. Datei erstellen
+cat > workers/codex/run_ollama.py <>'PY'
+#!/usr/bin/env python3
+import sys, json, urllib.request, os
+
+def main(task_file, result_file, ollama_url, model):
+    with open(task_file, 'r') as f:
+        task_content = f.read()
+    # Umgebungsvariable prüfen (Docker host.docker.internal)
+    ollama_url = os.environ.get('OLLAMA_URL', ollama_url)
+    model = os.environ.get('OLLAMA_CODER_MODEL', model)
+    url = f"{ollama_url}/api/generate"
+    payload = json.dumps({"model": model, "prompt": task_content, "stream": False}).encode('utf-8')
+    req = urllib.request.Request(url, data=payload, headers={'Content-Type': 'application/json'}, method='POST')
+    try:
+        with urllib.request.urlopen(req, timeout=300) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+            result = data.get('response', 'No response')
+    except Exception as e:
+        result = f"ERROR: {str(e)}"
+    with open(result_file, 'w') as f:
+        f.write(result)
+    print(f"[ollama-coder-worker] Result written ({len(result)} chars)")
+
+if __name__ == "__main__":
+    if len(sys.argv) < 5:
+        print("Usage: run_ollama.py <task_file> <result_file> <ollama_url> <model>")
+        sys.exit(1)
+    main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
+PY
+chmod +x workers/codex/run_ollama.py
+
+# 2. Image neu bauen + Container neu starten
+docker compose -f docker-compose.control.yml build codex-worker
+docker compose -f docker-compose.control.yml up -d codex-worker
+
+# 3. Prüfen
+docker logs --tail=5 hermes-devops-ai-environment-codex-worker-1
+docker exec hermes-devops-ai-environment-codex-worker-1 ls /worker/
+```
 
 ### "Sync fehlgeschlagen"
 1. **Log prüfen:** `tail /var/log/hermes-mesh-$(date +%Y%m%d).log`
