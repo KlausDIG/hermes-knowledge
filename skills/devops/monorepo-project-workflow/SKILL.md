@@ -14,11 +14,12 @@ tags:
   - projects
   - workflow
   - automation
-version: "1.1.0"
+version: "1.3.0"
 related_skills:
   - automated-git-sync
   - github-repo-management
   - hermes-skills-sync
+  - nextcloud-rclone-cloud-first
 ---
 
 # 📁 Monorepo Project Workflow
@@ -31,6 +32,7 @@ Alle Projekte landen zentral in **einem** Repo:
 - **Lokal:** `~/hermes-klausi-hp/hermes-klausi-hp/`
 - **Pfad für neue Projekte:** `projects/<projektname>/`
 - **Auto-Push:** Cronjob `project-auto-push` alle 30 Minuten
+- **Nextcloud-Backup:** Cronjob `neytcloud-backup` täglich 02:00 Uhr
 
 Keine separaten Repos mehr für Einzelprojekte.
 
@@ -119,11 +121,12 @@ git config --global user.name "KlausDIG"
 git config --global user.email "KlausDIG@users.noreply.github.com"
 ```
 
-## Cronjob
+## Cronjobs
 
 | Job | Schedule | Status |
 |-----|----------|--------|
-| `project-auto-push` | Alle 30 Min | ✅ Aktiv |
+| `project-auto-push` | Alle 30 Min | ✅ GitHub-Sync |
+| `neytcloud-backup` | Täglich 02:00 | ✅ Nextcloud-Backup |
 
 ## Pitfalls
 
@@ -154,8 +157,18 @@ rclone via Snap sieht NUR `~/snap/rclone/current/.config/rclone/`, NICHT `~/.con
 
 **Fix:** Stattdessen `2>&1 | tee -a "$LOGFILE"` verwenden.
 
+### f) rclone `--daemon` funktioniert nicht unter Snap
+
+**Fix:** FUSE-Mount funktioniert nicht zuverlässig. Thin-Client-Pattern verwenden (siehe `nextcloud-rclone-cloud-first` Skill).
+
+### g) Automatischer Nextcloud-Backup-Cronjob
+
+Der `neytcloud-backup`-Cronjob läuft täglich um 02:00 Uhr und sichert das gesamte Monorepo zu Nextcloud. Kein manuelles Eingreifen nötig — aber langsamer Upload muss beachtet werden (typisch ~40 Min für 7 MB).
+
 ## References
 
 - `references/backup-sync.md` — Nextcloud-Backup via rclone (Sekundär-Backup)
+- `references/thin-client-strategy.md` — On-demand Sync statt FUSE-Mount
 - `automated-git-sync` Skill — Auto-Push zu GitHub (Primär-Backup)
 - `github-repo-management` Skill — Repo-Setup und Remotes
+- `nextcloud-rclone-cloud-first` Skill — Thin-Client + Snap-Workarounds

@@ -224,6 +224,22 @@ git config --global user.email "KlausDIG@users.noreply.github.com"
 ```
 **NIE** verwenden: `agent@gridtrace.local`, `Project Autonomous Agent`
 
+### I. Thin-Client / Cloud-First Modell
+Wenn der User nur begrenzten lokalen Speicher hat (z.B. 26 GB frei bei 233 GB SSD):
+- **Primär-Speicher:** GitHub (`hermes-klausi-hp`) und Nextcloud (`Projects/`)
+- **Lokal:** Nur aktives Projekt in `~/workspace/` oder direkt im Monorepo
+- **Nicht installieren:** Große ML-Pakete (PyTorch, Transformers, Sentence-Transformers)
+- **Stattdessen:** Ollama (ist schon da), llama-cpp-python (GGUF-Modelle), fastembed (Embeddings)
+- **Regel:** Alles was in der Cloud liegt, muss nicht lokal gehalten werden
+
+### J. Nextcloud als Sekundär-Backup
+Via rclone (WebDAV) täglich syncen:
+```bash
+rclone sync ~/hermes-klausi-hp/hermes-klausi-hp/ neytcloud:Projects/hermes-klausi-hp/ \
+    --exclude ".git/**" --exclude "node_modules/**"
+```
+**Wichtig:** Snap-rclone Config unter `~/snap/rclone/current/.config/rclone/` anlegen.
+
 ---
 
 ## References
