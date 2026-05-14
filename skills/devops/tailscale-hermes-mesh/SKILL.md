@@ -46,6 +46,67 @@ tags: [tailscale, mesh, vps, ae8, mac-mini, sync, network]
 | **linux-clawbot** | linux-clawbot-agent | 100.105.214.86 | ❌ Offline | 16 Tage |
 | **Anne M1** | anne-m1 | 100.118.194.66 | ❌ Offline | 14 Tage |
 
+## Mac Mini — Docker-basierte Hermes/AI-Umgebung
+
+> ⚠️ **Wichtig:** Der Mac Mini nutzt eine **eigenständige Docker-Compose-Umgebung** (`hermes-devops-ai-environment`), die NICHT das Standard-`~/.hermes/`-Layout verwendet.
+
+### Architektur
+| Aspekt | Standard-Hermes | Mac Mini Docker |
+|--------|----------------|-----------------|
+| Hermes-Agent | `~/.hermes/` nativ | ❌ Kein nativer Agent |
+| Skills | `~/.hermes/skills/` | ❌ Nicht gemountet |
+| Memory | `~/.hermes/memory/` | ❌ Nicht gemountet |
+| Docker-Container | — | ✅ **12 Services** |
+| Telegram-Bot | — | ✅ **Funktioniert** |
+
+### Container-Stack (`docker-compose.control.yml`)
+| # | Container | Status | Port | Zweck |
+|---|-----------|--------|------|-------|
+| 1 | `control-gateway` | Up (healthy) | **8092** | API Gateway |
+| 2 | `telegram-bot` | Up | — | Telegram Bot |
+| 3 | `codex-worker` | Up | — | OpenAI Codex Worker |
+| 4 | `alert-receiver` | Up | **9094** | Alert Handler |
+| 5 | `scheduler` | Up | — | Task Scheduler |
+| 6 | `open-webui` | Up (healthy) | **3001** | LLM Chat Interface |
+| 7 | `n8n` | Up | **5678** | Workflow Automation |
+| 8 | `grafana` | Up | **3000** | Dashboards |
+| 9 | `prometheus` | Up | **9090** | Monitoring |
+| 10 | `cadvisor` | Up (healthy) | **8081** | Container Metrics |
+| 11 | `alertmanager` | Up | **9093** | Alert Manager |
+| 12 | `node-exporter` | Up | **9100** | System Metrics |
+
+### Docker-Desktop Troubleshooting
+Falls Docker Desktop auf macOS hängt ("Not Responding", `docker ps` timeout):
+
+```bash
+# Schritt 1: Docker Desktop beenden
+osascript -e 'quit app "Docker Desktop"'
+sleep 10
+killall "Docker Desktop" 2>/dev/null
+killall com.docker.backend 2>/dev/null
+sleep 10
+
+# Schritt 2: Neustarten
+open -a "Docker Desktop"
+sleep 60
+
+# Schritt 3: Prüfen
+export PATH="/usr/local/bin:$PATH"
+docker ps
+docker compose -f ~/hermes-devops-ai-environment/docker-compose.control.yml ps
+```
+
+### Sync-Kompatibilität
+| Sync-Richtung | Funktioniert | Bemerkung |
+|---------------|-------------|-----------|
+| Hostinger → Mac Mini (Skills) | ✅ | rsync zu `~/.hermes/skills/` auf macOS |
+| Hostinger → Mac Mini (Memory) | ⚠️ | Nur falls vorhanden |
+| Mac Mini → Hostinger (Memory) | ✅ | Bidirektional |
+| **Docker-Umgebung → ~/.hermes** | ❌ | Nicht automatisch; Container mounten nur Projekt-Ordner |
+
+Für Docker-interne Git-Sync: `cd ~/hermes-devops-ai-environment && git push`
+Für Docker-interne Nextcloud-Sync: rclone muss im Container oder Host installiert sein (nicht vorhanden).
+
 ## Wakeup-Prozedur für AE8
 
 ### Schritt 1: Wake-on-LAN (falls unterstützt)
