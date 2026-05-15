@@ -71,13 +71,15 @@ def stage_default_files():
                 print(f"⏭️ Nicht vorhanden: {f}")
 
 def commit_and_tag():
-    """Commit + Semantic Release Tag"""
+    """Commit + Semantic Release Tag - NUR explizit getrackte Dateien"""
     out, _, _ = run_git(["status", "--short"])
     if not out.strip():
         print("🆗 Keine Änderungen")
         return False
     
-    run_git(["add", "-A"])
+    # NIE git add -A - nur explizit getrackte/modifizierte Dateien stagen
+    # Das verhindert, dass riesige Dateien (Downloads, Snaps, etc.) eingecheckt werden
+    run_git(["add", "--update"])  # Nur bereits getrackte Dateien updaten
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     msg = f"🤖 [SYNC] Dotfiles sync @ {timestamp}"
     run_git(["commit", "-m", msg])

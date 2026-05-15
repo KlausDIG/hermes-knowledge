@@ -345,34 +345,36 @@ snap remove <name> --purge          # Ganzen Snap entfernen
 snap remove <name> --revision=<rev>  # Nur alte Revision
 ```
 
-## Automatisches Cleanup (Cronjob)
+## Automatisches Cleanup (Cronjobs)
 
-### Script: `~/bin/cleanup-safe.sh`
-**Was es macht:**
-1. Alte Hermes-Logs (>30 Tage)
-2. Browser-/App-Caches (keine Configs!)
-3. Alte Snap-Revisionen (manuelle Liste)
-4. Homebrew cleanup + autoremove
-5. Papierkorb leeren
-6. /tmp User-Dateien (>1 Tag)
+### Mehrstufiges Defense-System
 
-**Schedule:** Sonntag 03:00 Uhr
-**Ergebnis:** ~500 MB - 2 GB pro Woche
+| Job | Script | Schedule | Funktion |
+|-----|--------|----------|----------|
+| `disk-watchdog` | `disk-watchdog.sh` | **Jede Stunde** | Prüft freien Speicher. Bei < 5 GB → Notfall-Cleanup |
+| `daily-cleanup` | `daily-cleanup.sh` | **Täglich 02:00** | Chrome/Snap-Caches, Homebrew, npm, Hermes-Logs, /tmp, Downloads |
+| `snap-cleanup` | `snap-cleanup.sh` | **Sonntag 04:00** | Deaktivierte Snap-Revisionen entfernen |
+
+### Manuelle Emergency-Scripts
+
+| Script | Funktion | Sudo nötig? | Erwartete Freigabe |
+|--------|----------|-------------|-------------------|
+| `~/bin/cleanup-now.sh` | Sofort-Cleanup nach intensiver Session | ❌ Nein | ~200 MB - 2 GB |
+| `~/bin/cleanup-ollama-gpu.sh` | Ollama ROCm/CUDA/Vulkan entfernen (Intel-iGPU) | ✅ Ja | **~5.9 GB** |
+| `~/bin/cleanup-snaps.sh` | Thunderbird/Brave entfernen + alte Revs | ✅ Ja | **~1-2 GB** |
+| `~/bin/cleanup-dotfiles.sh` | `~/.cfg` Git-Objects komprimieren | ❌ Nein | **~3-5 GB** |
+| `~/bin/cleanup-downloads.sh` | Installationsarchive + alte Downloads | ❌ Nein | ~50-200 MB |
+| `~/bin/setup-zram.sh` | ZRAM aktivieren | ✅ Ja | +4 GB (Swap.img entfällt) |
+| `~/bin/remove-old-swap.sh` | Altes Swap-File entfernen | ✅ Ja | +4 GB |
+| `~/bin/thin-client.sh` | Cloud on-demand | ❌ Nein | — |
 
 ### Verifizierung nach Cleanup
 ```bash
 df -h /
 free -h
+cat ~/.local/state/daily-cleanup.log
+cat ~/.local/state/disk-watchdog.log
 ```
-
-## Scripts-Referenz
-
-| Script | Funktion | Sudo nötig? |
-|--------|----------|-------------|
-| `~/bin/setup-zram.sh` | ZRAM aktivieren | ✅ Ja |
-| `~/bin/remove-old-swap.sh` | Altes Swap-File entfernen | ✅ Ja |
-| `~/bin/cleanup-safe.sh` | Sicheres Aufräumen | ❌ Nein |
-| `~/bin/thin-client.sh` | Cloud on-demand | ❌ Nein |
 
 ## Pitfalls
 
@@ -394,3 +396,133 @@ Config muss an beiden Orten liegen:
 ~/.config/rclone/rclone.conf
 ~/snap/rclone/current/.config/rclone/rclone.conf
 ```
+
+## Mehrstufiges Defense-System gegen Chrome/Snap-Cache-Explosion
+
+**Kontext:** KlausDIG nutzt intensiv Chrome und Snap-basierte Apps (Code:, etc.). Bei intensiven Sessions kann Chrome-Cache und Snap-Caches innerhalb von Stunden GBs verbrauchen — wöchentliches Cleanup reicht nicht. Entwickelt nach einem realen 99%-Füllungs-Notfall.
+
+### Defense-Ebenen
+
+| Ebene | Job | Frequenz | Trigger |
+|-------|-----|----------|---------|
+| 1. **Watchdog** | `disk-watchdog` | **Jede Stunde** | Auto — prüft freien Speicher |
+| 2. **Daily** | `daily-cleanup` | **Täglich 02:00** | Auto — aggressives Cache-Cleanup |
+| 3. **Snap** | `snap-cleanup` | **Sonntag 04:00** | Auto — deaktivierte Revisionen |
+| 4. **Manual** | `~/bin/cleanup-now.sh` | **Sofort** | Manuell nach intensiver Session |
+| 5. **Deep** | `~/bin/cleanup-*.sh` | **Ad-hoc** | Einmalige Brocken (Ollama, Dotfiles) |
+
+### Watchdog-Logik (stündlich)
+
+```bash
+FREE_GB=$(df -BG / | tail -1 | awk '{print $4}' | tr -d 'G')
+if [ "$FREE_GB" -lt 5 ]; then
+    # Sofort:
+    rm -rf ~/.cache/google-chrome/* ~/.cache/chromium/*
+    rm -rf ~/snap/*/current/.cache/*
+    npm cache clean --force
+    brew cleanup -s
+    find /tmp -user "$USER" -type f -delete
+fi
+```
+
+> **Lernen aus Session:** "Wöchentlich ist zu selten — Chrome-Cache explodiert bei intensiver Nutzung innerhalb von Stunden."
+
+### Daily-Cleanup Ziele (aggressiv)
+
+```bash
+# Chrome/Chromium + VS Code: Snap-Caches (alle Varianten)
+for cache in \
+    "$HOME/.cache/google-chrome" \
+    "$HOME/.cache/chromium" \
+    "$HOME/.config/google-chrome/Default/Cache" \
+    "$HOME/.config/chromium/Default/Cache" \
+    "$HOME/snap/code/current/.config/Code:/Cache" \
+    "$HOME/snap/code/current/.config/Code:/CachedData" \
+    "$HOME/snap/code/current/.config/Code:/CachedExtensionVSIXs"; do
+    [ -d "$cache" ] && rm -rf "$cache"/* 2>/dev/null || true
+done
+
+# Snap-Caches (alle Snaps)
+for snap_cache in "$HOME"/snap/*/current/.cache; do
+    [ -d "$snap_cache" ] && rm -rf "$snap_cache"/* 2>/dev/null || true
+done
+
+# + Homebrew, npm, Hermes-Logs (>7 Tage), /tmp, Downloads (>3 Tage)
+```
+
+### Sofort-Cleanup Script (`~/bin/cleanup-now.sh`)
+
+Ein Befehl nach intensiver Chrome-Session:
+```bash
+bash ~/bin/cleanup-now.sh   # Chrome/Snap-Caches + /tmp + npm + Brew
+```
+
+## Incident: Disk-Platz-Notstand bei 99% Füllung (2026-05-15)
+
+**Situation:** `/` bei 99% (217 GB / 233 GB), nur 4 GB frei. `du -sh /` und `du -sh /home` timen aus.
+
+### Neue Platzfresser entdeckt
+
+| # | Pfad | Größe | Ursache |
+|---|------|-------|---------|
+| 1 | `~/.cfg` (Dotfiles bare-repo Git-Objects) | ~7 GB | Auto-Sync hat Snaps/Caches als Git-Objects eingecheckt |
+| 2 | `/usr/local/lib/ollama` | ~6 GB | GPU-Backends (ROCm 2.5G, CUDA 3.5G) — nutzlos bei Intel-iGPU |
+| 3 | `~/.vscode/` | ~600 MB | Extensions (Pylance, IntelliCode) |
+| 4 | `~/.rustup/` | ~1.4 GB | Rust-Toolchains |
+| 5 | `~/.npm/` | ~1.2 GB | Node-Modules-Cache |
+
+### Analyse-Techniken bei Timeouts
+
+Wenn `du -sh /` oder `du -sh /home` timed out (60s):
+
+**1. Python-Scan statt Shell-du (Timeout-sicher)**
+```python
+paths = ["/usr", "/var", "/opt", "/snap", "/home", "/tmp"]
+for p in paths:
+    r = terminal(f'du -sh {p} 2>/dev/null')
+    print(r['output'].strip())
+```
+
+**2. Bare-Repo mit GIT_DIR statt `--git-dir`**
+```bash
+# FALSCH (Git-Version auf Ubuntu 24.04):
+git --git-dir=~/.cfg count-objects -vH   # → "Kein Git-Repository"
+
+# RICHTIG:
+GIT_DIR=/home/klausd/.cfg git count-objects -vH
+GIT_DIR=/home/klausd/.cfg git log --oneline | head -20
+GIT_DIR=/home/klausd/.cfg git rev-list --all --objects | wc -l
+```
+
+**3. Finden des Timeout-Verursachers**
+```bash
+ls -d ~/.* 2>/dev/null              # versteckte Verzeichnisse auflisten
+for dir in ~/.ollama ~/.n8n ~/.dotnet ~/.cfg ~/.vscode ~/.cargo; do
+    timeout 15 du -sh "$dir" 2>/dev/null || echo "TIMEOUT: $dir"
+done
+```
+
+### Bereinigung: Ollama GPU-Backends (Sudo nötig)
+
+Bei Intel-iGPU sind ROCm und CUDA-Backends **komplett nutzlos**:
+```bash
+# Nur behalten: libggml-cpu-*.so + libggml-base.so*
+# Löschen (Root erforderlich):
+sudo rm -rf /usr/local/lib/ollama/rocm      # ~2.5 GB
+sudo rm -rf /usr/local/lib/ollama/cuda_v12  # ~2.5 GB
+sudo rm -rf /usr/local/lib/ollama/cuda_v13  # ~1 GB
+# Vulkan (~55 MB) optional
+```
+
+### Bereinigung: Dotfiles bare-repo
+
+**Analyse großer Git-Objects:**
+```bash
+GIT_DIR=/home/klausd/.cfg git rev-list --all --objects | \
+    awk '{print $1}' | xargs -I{} sh -c 'GIT_DIR=/home/klausd/.cfg git cat-file -s {}' 2>/dev/null | \
+    sort -rh | head -20
+```
+
+**Typisch:** Alte Snap-Revisions, Download-Caches, oder Modelle wurden per `config add` eingecheckt. `git-filter-repo` oder `git gc --aggressive` nach Identifikation.
+
+Siehe `references/disk-fresser-klausdig.md` für vollständige Session-Dokumentation.
