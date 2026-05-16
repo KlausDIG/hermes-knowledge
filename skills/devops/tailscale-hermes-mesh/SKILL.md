@@ -1,7 +1,7 @@
 ---
 name: tailscale-hermes-mesh
 title: Tailscale Hermes Mesh Network
-version: 1.0.0
+version: 1.1.0
 author: KlausDIG
 description: Verwaltung der Tailscale-basierten Hermes-Mesh-Netzwerktopologie (Hostinger, AE8, Mac Mini, lokale Instanzen)
 tags: [tailscale, mesh, vps, ae8, mac-mini, sync, network]
@@ -123,9 +123,21 @@ EOF
 | 12 | `node-exporter` | Up | **9100** | System Metrics |
 ## Docker-Desktop macOS Troubleshooting
 
+### Top 3 Ausfallursachen (gelernt aus Sessions)
+
+| Rang | Ursache | Erkennung | Sofort-Behebung |
+|------|---------|-----------|-----------------|
+| 1 | **Disk Full** (100%) | `df -h /` zeigt `100%`, `~100MB frei` | VM-Daten löschen (siehe unten) |
+| 2 | **Docker Engine hängt** | `docker ps` timeout, GUI läuft | Prozesse killen + 120s warten |
+| 3 | **Falsche Compose-Datei** | `docker compose up` ohne `-f override` | Mit beiden `-f` neu starten |
+
+**Health-Check-Script:** [scripts/macmini-docker-health-check.sh](scripts/macmini-docker-health-check.sh) — läuft alle 30 Min vom Hostinger VPS per SSH-Cronjob.
+
+**Session-Recovery-Details:** Siehe [references/mac-mini-disk-full-recovery.md](references/mac-mini-disk-full-recovery.md) für vollständiges Protokoll der realen Recovery-Session vom 2026-05-16 (100% Festplatte → 15 GB frei → Stack wieder UP).
+
 ### Symptom: `docker ps` timeout, GUI läuft aber Engine nicht
 
-**Diagnose:** Docker Desktop ist in einem "Not Responding" Zustand — die GUI startet, aber die Docker-Engine antwortet nicht. Das passiert oft nach macOS-Updates, wenn die Docker-VM nicht sauber startet, oder **wenn die Festplatte voll ist**.
+**Diagnose:** Docker Desktop ist in einem "Not Responding" Zustand — die GUI startet, aber die Docker-Engine antwortet nicht. Das passiert oft nach macOS-Updates, wenn die Docker-VM nicht sauber startet, **wenn `docker compose` blockiert** (bei Hintergrundprozessen), oder **wenn die Festplatte voll ist**.
 
 ### Priorisierte Diagnose (Remote über SSH)
 
@@ -143,23 +155,32 @@ ssh -i /root/.ssh/id_macmini -o StrictHostKeyChecking=no klaus@100.93.33.84 \
 
 #### 2. Festplatte voll? (Häufigste Ursache)
 
-Wenn `df -h /` zeigt: `100%   100Mi  frei`
+Wenn `df -h /` zeigt: `100%   100Mi frei`
 
 → **Die Docker-VM hat sich selbst heruntergefahren!**
 → Im Log steht dann: `"shutdown complete"` (von einem früheren Zeitpunkt)
 
-```bash
-# APFS-Snapshots befreien (kein sudo nötig):
-tmutil deletelocalsnapshots /
-tmutil thinlocalsnapshots / 99999999999 1
+**Sofortmaßnahme — Remote über SSH:**
 
-# Wenn das nicht reicht:
-# 1. Docker Desktop GUI öffnen (oder `open -a "Docker Desktop"`)
-# 2. Menü: Troubleshoot → "Reset to factory defaults"
-#    → Löscht alle Container/Images, Docker.raw wird neu erstellt
-#    → Der Projektordner bleibt erhalten
-# 3. Danach: Einstellungen → Ressourcen → Virtual disk limit auf 64‒100 GB begrenzen
+```bash
+# 1. Docker beenden
+pkill -9 -x "Docker Desktop"
+pkill -9 -f "com.docker.backend"
+sleep 10
+
+# 2. VM-Daten löschen (~13 GB frei)
+rm -rf ~/Library/Containers/com.docker.docker/Data/vms/
+rm -rf ~/Library/Containers/com.docker.docker/Data/log/*
+
+# 3. Neu starten
+open -a "Docker Desktop"
+sleep 90
+docker version
 ```
+
+**Dauerhafte Prävention:**
+- Docker-Desktop Einstellungen → Ressourcen → Virtual disk limit auf **64–100 GB** begrenzen
+- Siehe auch: [references/mac-mini-docker-env.md](references/mac-mini-docker-env.md) für vollständige Session-Recovery-Prozedur
 
 #### 3. Docker Desktop Prozess hängt (nicht Speicherproblematik)
 
@@ -181,10 +202,27 @@ docker ps
 
 | Fehler | Bedeutung | Aktion |
 |---|---|---|
-| `Cannot connect … unix:///…docker.sock` | Daemon gar nicht da | Punkt 1/2 oben prüfen |
+| `Cannot connect … docker.sock` | Daemon gar nicht da | Punkt 1/2 oben prüfen |
 | `Server: [empty], Running: 0/0` | Daemon startet noch | 120‒180 Sekunden warten |
 | `Connection refused` | Socket existiert nicht | Docker Desktop beenden und 60 Sek warten |
-| **Timeout nach 60s** | Engine antwortet nicht | Fast immer Disk Full oder VM-Crash |
+| **Timeout bei `docker ps`** | Engine antwortet nicht | 2‒5 Min. warten, oder compose blockiert |
+| **`docker compose down` hängt** | Compose-Daemon blockiert | `pkill -9 -f "docker compose"` + neu versuchen |
+
+### Wenn `docker compose` blockiert (hängt in down/up)
+
+Nach einem frischen Reset können 12 Container gleichzeitig starten — das überlastet den Daemon:
+
+```bash
+# Falls `docker compose up/down` im Terminal hängt:
+pkill -9 -f "docker compose"
+pkill -9 -f "docker-compose"
+sleep 5
+
+# Dann erneut
+docker compose -f docker-compose.control.yml -f docker-compose.override.yml up -d
+```
+
+> **Wichtig:** Bei Timeout nie mehrere compose-Befehle gleichzeitig starten — das blockiert sich gegenseitig.
 
 ### Container-Stack nach Docker-Neustart wiederherstellen
 
@@ -197,6 +235,8 @@ docker compose -f docker-compose.control.yml -f docker-compose.override.yml up -
 ```
 
 **Wichtig:** Die `override.yml` mit den Hermes-Skills/Memory-Mounts muss beim Start mit `-f` angegeben werden! Ohne `-f docker-compose.override.yml` fehlen die Mounts.
+
+**Referenz für vollständige Session-Recovery:** [references/mac-mini-docker-env.md](references/mac-mini-docker-env.md)
 
 ### rclone Config-Format (Nextcloud WebDAV)
 
