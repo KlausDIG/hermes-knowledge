@@ -1,6 +1,6 @@
 # Projekt-Status
 
-*Aktualisiert: 2026-05-15 06:30*
+*Aktualisiert: 2026-05-16 18:00*
 
 ## Offen
 - [ ] Nur Zeilen mit **TODO:/FIXME:/BUG:** **+ Action-Verb** (implement/fix/add/...) werden als echt gezäh
