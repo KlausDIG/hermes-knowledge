@@ -1173,3 +1173,8 @@ error: Fehler beim Versenden einiger Referenzen nach 'https://github.com/KlausDI
 
 [2026-05-16 17:53:09] === 🔄 Hermes Knowledge Sync Start ===
 [2026-05-16 17:53:10] ⏰ Cronjobs exportiert
+[2026-05-16 17:53:10] 💾 Commited
+[2026-05-16 17:53:10] 🏷️ Tag: v1.0.148
+[2026-05-16 17:53:10] ⚠️ Push fehlgeschlagen: fatal: konnte nicht auf 'https://github.com/KlausDIG/hermes-knowledge.git/' zugreifen: Could not resolve host: github.com
+[2026-05-16 17:53:10] === ✅ Sync Abgeschlossen ===
+
