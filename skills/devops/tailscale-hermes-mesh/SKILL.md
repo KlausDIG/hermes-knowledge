@@ -125,27 +125,66 @@ EOF
 
 ### Symptom: `docker ps` timeout, GUI läuft aber Engine nicht
 
-**Diagnose:** Docker Desktop ist in einem "Not Responding" Zustand — die GUI startet, aber die Docker-Engine antwortet nicht. Das passiert oft nach macOS-Updates oder wenn die Docker-VM nicht sauber startet.
+**Diagnose:** Docker Desktop ist in einem "Not Responding" Zustand — die GUI startet, aber die Docker-Engine antwortet nicht. Das passiert oft nach macOS-Updates, wenn die Docker-VM nicht sauber startet, oder **wenn die Festplatte voll ist**.
 
-**Hinweis:** Wenn der Container-Stack vorher lief und Docker Desktop hängt, ist die **einfachste Lösung** oft ein Neustart der App (nicht des ganzen Systems).
+### Priorisierte Diagnose (Remote über SSH)
+
+Wenn der Container-Stack down ist, prüfe in **dieser Reihenfolge**:
+
+#### 1. Grundlegende Erreichbarkeit
+```bash
+# Von Hostinger (Jump-Host) oder lokalem Rechner:
+ssh -i /root/.ssh/id_macmini -o StrictHostKeyChecking=no klaus@100.93.33.84 \
+  'export PATH="/usr/local/bin:/usr/bin:/bin:/sbin:$PATH" && \
+   uptime && df -h / && \
+   docker ps 2>&1 && echo "---" && \
+   tail -5 ~/Library/Containers/com.docker.docker/Data/log/vm/Console.log'
+```
+
+#### 2. Festplatte voll? (Häufigste Ursache)
+
+Wenn `df -h /` zeigt: `100%   100Mi  frei`
+
+→ **Die Docker-VM hat sich selbst heruntergefahren!**
+→ Im Log steht dann: `"shutdown complete"` (von einem früheren Zeitpunkt)
 
 ```bash
-# Schritt 1: Docker Desktop beenden
+# APFS-Snapshots befreien (kein sudo nötig):
+tmutil deletelocalsnapshots /
+tmutil thinlocalsnapshots / 99999999999 1
+
+# Wenn das nicht reicht:
+# 1. Docker Desktop GUI öffnen (oder `open -a "Docker Desktop"`)
+# 2. Menü: Troubleshoot → "Reset to factory defaults"
+#    → Löscht alle Container/Images, Docker.raw wird neu erstellt
+#    → Der Projektordner bleibt erhalten
+# 3. Danach: Einstellungen → Ressourcen → Virtual disk limit auf 64‒100 GB begrenzen
+```
+
+#### 3. Docker Desktop Prozess hängt (nicht Speicherproblematik)
+
+Wenn die Disk okay ist (mehrere GB frei) und Docker Desktop trotzdem nicht antwortet:
+
+```bash
 osascript -e 'quit app "Docker Desktop"'
 sleep 10
-killall "Docker Desktop" 2>/dev/null
-killall com.docker.backend 2>/dev/null
+killall -9 "Docker Desktop" 2>/dev/null
+killall -9 "com.docker.backend" 2>/dev/null
 sleep 10
-
-# Schritt 2: Neustarten
 open -a "Docker Desktop"
-sleep 60
-
-# Schritt 3: Prüfen
+sleep 120
 export PATH="/usr/local/bin:$PATH"
 docker ps
-docker compose -f ~/hermes-devops-ai-environment/docker-compose.control.yml ps
 ```
+
+#### 4. Docker-Fehlercodes und Timeouts
+
+| Fehler | Bedeutung | Aktion |
+|---|---|---|
+| `Cannot connect … unix:///…docker.sock` | Daemon gar nicht da | Punkt 1/2 oben prüfen |
+| `Server: [empty], Running: 0/0` | Daemon startet noch | 120‒180 Sekunden warten |
+| `Connection refused` | Socket existiert nicht | Docker Desktop beenden und 60 Sek warten |
+| **Timeout nach 60s** | Engine antwortet nicht | Fast immer Disk Full oder VM-Crash |
 
 ### Container-Stack nach Docker-Neustart wiederherstellen
 
