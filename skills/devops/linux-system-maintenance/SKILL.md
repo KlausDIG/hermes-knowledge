@@ -17,13 +17,13 @@ tags:
   - cleanup
   - disk-space
   - snap
-  - browser-memory
+version: "1.2.0"
 related_skills:
   - linux-agent-setup
   - linux-dev-workstation
   - thin-client-nextcloud
   - agent-bootstrap
-version: "1.0.0"
+version: "1.1.0"
 ---
 
 # 🛠️ Linux System Maintenance
@@ -112,6 +112,9 @@ done | sort -rh | head -15
 
 ### Werkzeuge für interaktive Analyse
 Siehe `references/disk-analysis-tools.md` für `ncdu` (via Homebrew), typische Platzfresser auf diesem System, und wöchentliche Platzverlust-Erwartungswerte.
+
+### Docker Desktop macOS Recovery
+Siehe `references/docker-desktop-recovery-mac.md` für den vollständigen Notfall-Recovery-Prozess, wenn Docker Desktop bei knappem Speicher hängt. Inklusive VM-Disk-Löschung, Settings.json für 64 GB VM-Limit, und Cloud-First Docker Override.
 
 ## Browser-Reduktion (größter RAM-Verursacher)
 
@@ -376,7 +379,59 @@ cat ~/.local/state/daily-cleanup.log
 cat ~/.local/state/disk-watchdog.log
 ```
 
+## Docker Desktop VM-Disk explodiert bei knappem Speicher (macOS)
+
+> Siehe `references/docker-desktop-recovery-mac.md` fuer den vollstaendigen Notfall-Recovery-Prozess, inklusive:
+> - VM-Disk-Loeschung (bringt sofort ~10-15 GB)
+> - Settings.json fuer 64 GB VM-Limit
+> - Cloud-First Docker Compose Override (keine named Volumes)
+> - SSH-Escaping-Pitfalls mit zsh/macOS
+>
+> Siehe auch `templates/docker-compose-cloud-first.yml` fuer ein fertiges Cloud-First Compose-File.
+
+Wenn `df -h /` >= 90% zeigt, kann Docker Desktop keine neue VM anlegen oder friert ein.
+**Symptom:** `docker info` → Endloses Warten. Letztes VM-Log: "shutdown complete".
+
+**Schnell-Diagnose:**
+```bash
+df -h /                    # Wenn >= 90% → VM-Disk ist blockiert
+ls ~/Downloads/*.dmg       # Installationsarchive oft mehrere GB
+# Python-Scan statt du -sh (timeout-sicher):
+python3 -c "import os; [print(p, f'{sum(os.path.getsize(os.path.join(d,f)) for d,_,files in os.walk(p) for f in files if os.path.exists(os.path.join(d,f)))/(1024**3):.1f} GB' if os.path.exists(p) else 'MISSING') for p in ['/Users/klaus/Library/Containers/com.docker.docker','/Users/klaus/Documents','/Users/klaus/Library/Application Support/Autodesk','/Users/klaus/Library/Application Support/Google']]"
+```
+
+**Notfall-Recovery (4 Schritte):**
+```bash
+# 1. Docker beenden
+pkill -9 -x "Docker Desktop"
+pkill -9 -f "com.docker.backend"
+sleep 10
+
+# 2. VM-Disk loeschen (Bringt IMMER sofort ~10-15 GB)
+rm -rf ~/Library/Containers/com.docker.docker/Data/vms/0/
+
+# 3. Docker Desktop neu starten
+open -a "Docker Desktop"
+# Warte 60-90s bis Engine antwortet
+
+# 4. Verifizierung
+docker version --format "Daemon: {{.Server.Version}}"
+df -h /  # Sollte < 60% belegt zeigen
+```
+
+**VM-Disk dauerhaft begrenzen:**
+```bash
+mkdir -p "$HOME/Library/Group Containers/group.com.docker"
+printf '{"diskSizeMiB":65536}\n' > \
+    "$HOME/Library/Group Containers/group.com.docker/settings.json"
+# ODER Docker Desktop GUI: Settings → Resources → Virtual disk limit = 64 GB
+```
+
 ## Pitfalls
+
+### No PTY for sudo
+Hermes kann `sudo` **nicht** interaktiv ausführen (kein TTY).
+**Fix:** Script erstellen, User führt `sudo bash script.sh` manuell aus.
 
 ### No PTY for sudo
 Hermes kann `sudo` **nicht** interaktiv ausführen (kein TTY).
@@ -396,6 +451,54 @@ Config muss an beiden Orten liegen:
 ~/.config/rclone/rclone.conf
 ~/snap/rclone/current/.config/rclone/rclone.conf
 ```
+
+## Docker Desktop VM-Disk explodiert bei knappem Speicher (macOS)
+
+> Siehe `references/docker-desktop-recovery-mac.md` fuer den vollstaendigen Notfall-Recovery-Prozess, inklusive:
+> - VM-Disk-Loeschung (bringt sofort ~10-15 GB)
+> - Settings.json fuer 64 GB VM-Limit
+> - Cloud-First Docker Compose Override (keine named Volumes)
+> - SSH-Escaping-Pitfalls mit zsh/macOS
+
+Wenn `df -h /` >= 90% zeigt, kann Docker Desktop keine neue VM anlegen oder friert ein.
+**Symptom:** `docker info` → Endloses Warten. Letztes VM-Log: "shutdown complete".
+
+**Schnell-Diagnose:**
+```bash
+df -h /                    # Wenn >= 90% → VM-Disk ist blockiert
+ls ~/Downloads/*.dmg       # Installationsarchive oft mehrere GB
+# Python-Scan statt du -sh (timeout-sicher):
+python3 -c "import os; [print(p, os.path.exists(p) and f'{sum(os.path.getsize(os.path.join(d,f)) for d,_,files in os.walk(p) for f in files if os.path.exists(os.path.join(d,f)))/(1024\*\*3):.1f} GB') for p in ['/Users/klaus/Library/Containers/com.docker.docker','/Users/klaus/Documents','/Users/klaus/Library/Application Support/Autodesk']]"
+```
+
+**Notfall-Recovery (4 Schritte):**
+```bash
+# 1. Docker beenden
+pkill -9 -x "Docker Desktop"
+pkill -9 -f "com.docker.backend"
+sleep 10
+
+# 2. VM-Disk loeschen (Bringt IMMER sofort ~10-15 GB)
+rm -rf ~/Library/Containers/com.docker.docker/Data/vms/0/
+
+# 3. Docker Desktop neu starten
+open -a "Docker Desktop"
+# Warte 60-90s bis Engine antwortet
+
+# 4. Verifizierung
+docker version --format "Daemon: {{.Server.Version}}"
+df -h /  # Sollte < 60% belegt zeigen
+```
+
+**VM-Disk dauerhaft begrenzen:**
+```bash
+mkdir -p "$HOME/Library/Group Containers/group.com.docker"
+printf '{"diskSizeMiB":65536}\n' > \
+    "$HOME/Library/Group Containers/group.com.docker/settings.json"
+# ODER Docker Desktop GUI: Settings → Resources → Virtual disk limit = 64 GB
+```
+
+Siehe auch `templates/docker-compose-cloud-first.yml` fuer ein vollstaendiges Cloud-First Override.
 
 ## Mehrstufiges Defense-System gegen Chrome/Snap-Cache-Explosion
 
