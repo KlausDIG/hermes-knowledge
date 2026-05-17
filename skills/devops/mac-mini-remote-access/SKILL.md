@@ -15,19 +15,41 @@ tags: [ssh, mac-mini, hostinger, jumphost, tailscale, remote-access]
 [Agent-Linux / Du] --(SSH)--> [Hostinger VPS 187.77.65.191] --(SSH)--> [Mac Mini 100.93.33.84]
 ```
 
-## Schnellbefehle
+## SSH-Zugriff — Zwei Methoden
 
-### Direkter Login auf Mac Mini
+### ✅ Methode 1: Direktes OpenSSH (EMPFOHLEN — funktioniert zuverlässig)
 
-```bash
-ssh hostinger "ssh -i ~/.ssh/id_macmini -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null klaus@100.93.33.84"
-```
-
-### Einzelner Befehl auf Mac Mini (nicht-interaktiv)
+Tailscale SSH (`tailscale ssh`) hat auf macOS ein **bekanntes ACL-Problem** (`permission denied`).  
+Nutze stattdessen **direktes OpenSSH über die Tailscale-IP**:
 
 ```bash
-ssh hostinger "ssh -i ~/.ssh/id_macmini -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null klaus@100.93.33.84 'whoami; uname -a'"
+# Von Hostinger VPS:
+ssh -i ~/.ssh/id_macmini \
+  -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null \
+  klaus@100.93.33.84
+
+# Einzelner Befehl:
+ssh -i ~/.ssh/id_macmini \
+  -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null \
+  klaus@100.93.33.84 'whoami; hostname; uptime'
 ```
+
+**Wichtig:**
+- **User ist `klaus`** (nicht `klausi`!)
+- **Key ist `id_macmini`** (nicht `id_ed25519`!)
+- **IP ist `100.93.33.84`** (prüfe mit `tailscale status` ob sich die IP geändert hat)
+
+### ❌ Methode 2: Tailscale SSH (funktioniert NICHT auf macOS)
+
+```bash
+# SCHEITERT auf macOS mit "permission denied"
+tailscale ssh klausi@mac-mini-von-klaus
+```
+
+**Ursache:** macOS Tailscale implementiert SSH-ACLs anders als Linux. Der `--ssh` Flag auf dem Mac Mini reicht nicht — zusätzliche Systemeinstellungen ("Entfernte Anmeldung") wären nötig.  
+→ **Verwende Methode 1 (direktes OpenSSH).**
 
 ### Datei kopieren via Hostinger Kette
 

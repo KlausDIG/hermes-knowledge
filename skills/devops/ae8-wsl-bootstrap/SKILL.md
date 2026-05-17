@@ -4,11 +4,14 @@ description: |
   WSL2 + Tailscale + SSH Bootstrap für AE8 (Windows Desktop) im Hermes Mesh.
   Deckt: WSL2-Start, Tailscale-Verbindung, SSH-Fallback, Hermes-Deps,
   Auto-Start und WSL2-Keepalive gegen Standby.
-version: "1.0.0"
+version: "1.1.0"
 category: devops
 requires:
   - tailscale-hermes-mesh
 author: KlausDIG
+related_skills:
+  - hermes-mesh-operations
+  - mac-mini-remote-access
 ---
 
 # 🖥️ AE8 WSL2 Bootstrap
@@ -109,22 +112,32 @@ tailscale status
 
 ### Variante A: Tailscale SSH (empfohlen, kein Passwort nötig)
 
-### 4.2 Tailscale SSH (Optionale Variante)
+### 4.3 Verbindungstest (von einem anderen Mesh-Node)
 
-Tailscale SSH hat unter WSL2 ein bekanntes ACL-Problem (`permission denied`).
-Nutze stattdessen **OpenSSH-Fallback** (Schritt 4.1 oben).
+**Wichtig:** Tailscale SSH auf WSL2 hat ein **bekanntes ACL-Problem** (`permission denied`).  
+Nutze stattdessen **direktes OpenSSH über die Tailscale-IP:**
 
-Falls Tailscale SSH funktioniert:
 ```bash
-tailscale ssh klausi@ae8
+# Von Hostinger, lokalem Host oder Mac Mini:
+ssh klausi@100.95.25.46
+
+# Oder über Tailscale-MagicDNS (wenn DNS aktiviert):
+ssh klausi@ae8
 ```
 
-**Falls "permission denied":**
-- Prüfe mit `tailscale status` ob AE8 als **online** gilt
-- Prüfe mit `sudo systemctl status tailscaled` ob der Daemon läuft
-- Führe Schritt 2.4 erneut aus (force-reauth)
+**Erfolgreich wenn:** Prompt `klausi@AE8:/mnt/c/Users/klaus$` erscheint.
 
-> **Hinweis:** Die Tailscale-IP kann sich bei Re-Authentifizierung ändern. Die IP ist **nicht statisch** — verwende für OpenSSH den Tailscale-Namen `ae8` oder prüfe aktuelle IP mit `tailscale status`.
+**Falls "Connection closed" oder "Permission denied":**
+- Prüfe mit `ping 100.95.25.46` ob AE8 erreichbar ist
+- Warte 30–60 Sekunden nach WSL2-Start (Tailscale braucht Zeit)
+- Führe Schritt 2.4 erneut aus (`force-reauth`)
+
+### 4.4 Ping-Test (einfachste Prüfung)
+
+```bash
+ping -c 3 100.95.25.46
+```
+→ Erwartet: `0% packet loss`, Latenz ~130–360ms.
 
 ### Variante B: OpenSSH-Server (Fallback)
 

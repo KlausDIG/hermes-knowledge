@@ -309,31 +309,40 @@ pass = <DEIN_PASS>
 Für Docker-interne Git-Sync: `cd ~/hermes-devops-ai-environment && git push`
 Für Docker-interne Nextcloud-Sync: rclone muss im Container oder Host installiert sein (nicht vorhanden).
 
-## Wakeup-Prozedur für AE8
+## Wakeup-Prozedur für AE8 (WSL2 Windows Desktop)
 
-### Schritt 1: Wake-on-LAN (falls unterstützt)
-```bash
-# Von Hostinger oder lokaler Maschine:
-ssh hostinger "wakeonlan <AE8_MAC_ADRESSE>"  # MAC aus Tailscale Admin Panel
+### Problem: WSL2 geht in Standby
+
+Nach ~5 Minuten Inaktivität schläft WSL2 ein → Tailscale wird "idle" / "offline".
+
+### Lösung: `.wslconfig` mit `vmIdleTimeout=-1`
+
+**In Windows PowerShell als Admin:**
+
+```powershell
+wsl --shutdown
+
+echo "[wsl2]" > %USERPROFILE%\.wslconfig
+echo "vmIdleTimeout=-1" >> %USERPROFILE%\.wslconfig
+echo "localhostForwarding=true" >> %USERPROFILE%\.wslconfig
+echo "autoProxy=false" >> %USERPROFILE%\.wslconfig
+
+wsl
 ```
 
-### Schritt 2: Tailscale reaktivieren (auf AE8 lokal)
+### Schritt 1: WSL2 starten und Tailscale verbinden
+
 ```bash
-# Auf AE8 ausführen (physische Tastatur nötig):
-sudo tailscale up
-# Oder falls bereits angemeldet:
+# In WSL2-Terminal:
+sudo systemctl start tailscaled
+sudo tailscale up --ssh --accept-routes
 tailscale status
 ```
 
-### Schritt 3: Hermes auf AE8 starten
-```bash
-# Auf AE8:
-systemctl start hermes-agent
-# oder
-hermes gateway --start
-```
+**Wichtig:** Bei WSL2 entsteht oft ein iptables-Fehler (`nf_tables: unknown option`) — dieser ist **kosmetisch** und beeinträchtigt Tailscale nicht.
 
-### Schritt 4: Mesh-Sync prüfen
+### Schritt 2: Mesh-Sync prüfen
+
 ```bash
 # Auf Hostinger:
 /root/hermes-sync-mesh.sh

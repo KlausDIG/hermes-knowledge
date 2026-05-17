@@ -69,13 +69,172 @@ Load this skill when the user asks about:
 | Local Host | bash | Standard | – |
 | Hostinger VPS | bash | `sudo` needs root / no PTY | Script file + `sudo bash script.sh` |
 | Mac Mini | **zsh** | `bash` inline pipes fail over SSH | Always invoke `/bin/zsh script.sh` |
+| AE8 (WSL2) | **bash** | Tailscale SSH ACL broken; Sleep after 5min | Use **direct OpenSSH** via Tailscale IP; `.wslconfig` |
+| Mac Mini | **zsh** | Tailscale SSH fails; User/Key mismatch | `id_macmini` key, `klaus` user, `/bin/zsh` |
 
-**Reliable remote-script execution over zsh jumps:**
+---
+
+## 2.1 AE8 (WSL2) — Full Bootstrap Procedure
+
+### Problem: WSL2 Standby
+After ~5 minutes of inactivity, WSL2 suspends → Tailscale becomes `idle`.
+
+### Solution: `vmIdleTimeout = -1`
+
+**In Windows PowerShell as Admin:**
+```powershell
+wsl --shutdown
+$env:USERPROFILE
+# In cmd.exe:
+echo [wsl2] > %USERPROFILE%\.wslconfig
+echo vmIdleTimeout=-1 >> %USERPROFILE%\.wslconfig
+echo localhostForwarding=true >> %USERPROFILE%\.wslconfig
+echo autoProxy=false >> %USERPROFILE%\.wslconfig
+wsl
+```
+
+### Problem: Tailscale SSH `permission denied`
+WSL2 has a **known ACL bug** — `tailscale ssh klausi@ae8` always fails even with `--ssh`.
+
+### Solution: Direct OpenSSH (always works)
+```bash
+# From Hostinger or local host:
+ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+  klausi@100.95.25.46
+```
+
+**Critical details:**
+- User is `klausi` (not `klaus`!)
+- IP is **not static** — always check `tailscale status | grep ae8`
+- Current IP: `100.95.25.46` (was `100.64.108.109` before WSL2 restart)
+
+### Tailscale start in WSL2
+```bash
+sudo systemctl start tailscaled
+sudo tailscale up --ssh --accept-routes
+# Or with force-reauth:
+sudo tailscale up --ssh --accept-routes --force-reauth
+```
+
+### Projects on AE8
+| Process | Detail | Port |
+|---------|--------|------|
+| `dockerd` | Docker daemon | — |
+| `npm run start` | Node.js production app | `1201` → container `1200` |
+| `clawbot-deploy-handler/bot.py` | Python deploy bot | — |
+
+---
+
+## 2.2 Mac Mini (macOS) — Full Bootstrap Procedure
+
+### Tailscale on macOS
+Runs as **System Extension** (not systemd daemon):
+```bash
+tailscale status
+sudo tailscale up --ssh --accept-routes
+```
+
+### SSH Access: Hostinger Jumphost → Mac Mini
+```bash
+# 1. On Hostinger: verify key exists
+ls -la /root/.ssh/id_macmini
+
+# 2. Connect
+ssh -i /root/.ssh/id_macmini \
+  -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+  klaus@100.93.33.84
+```
+
+**Critical details:**
+- User is `klaus` (not `klausi`!)
+- Key is `id_macmini` (not `id_ed25519`!)
+- Shell is **zsh** — always invoke `/bin/zsh script.sh`
+
+### Projects on Mac Mini
+| Process | Framework | Detail |
+|---------|-----------|--------|
+| Ollama Server | Native macOS | Qwen2.5-Coder:14B, Hermes3:8B |
+| LM Studio | Electron/Node.js | MLX Backend, Apple Metal |
+| AI Operator Dashboard | Python 3.11 | `/Projects/ai-operator-dashboard/app.py` |
+| Multi-Agent System | Python 3.10 | Controller + 2× Discord Bots |
+| PM2 God Daemon | Node.js | Process Manager v6.0.14 |
+
+### Homebrew PATH Issue over SSH
+SSH sessions on macOS have **restricted PATH** (`/usr/bin:/bin:/usr/sbin:/sbin`), missing `/opt/homebrew/bin`. Always use **absolute paths**:
+```bash
+# Correct:
+/opt/homebrew/bin/brew --version
+/opt/homebrew/bin/restic version
+/opt/homebrew/bin/pm2 list
+
+# Incorrect (fails over SSH):
+brew --version    # "command not found"
+restic version    # "command not found"
+```
+
+### Backup Infrastructure
+| Script | Status | Location |
+|--------|--------|----------|
+| `setup-hermes-restic-backup.sh` | Needs `brew install restic` | `~/hermes-devops-ai-environment/` |
+| `hermes_backup_sync.sh` | ⚠️ AE8 IP may be stale | `~/hermes_backup_sync.sh` |
+| `backup_hermes_to_nextcloud.sh` | ⚠️ Nextcloud server may be unreachable | `~/backup_hermes_to_nextcloud.sh` |
+
+**Fix stale AE8 IP:**
+```bash
+sed -i '' 's/100.64.108.109/100.95.25.46/g' ~/hermes_backup_sync.sh
+```
+
+**Create reliable restic backup script (absolute paths):**
+```bash
+cat > ~/hermes-devops-ai-environment/scripts/backup/restic-backup.sh << 'EOF'
+#!/bin/bash
+set -euo pipefail
+export RESTIC_REPOSITORY=/Users/klaus/backups/restic-repo
+export RESTIC_PASSWORD=hermes-backup-2026
+RESTIC=/opt/homebrew/bin/restic
+
+$RESTIC version || { echo "Restic not found"; exit 1; }
+echo "[backup] start $(date)"
+$RESTIC backup \
+  ~/hermes-devops-ai-environment \
+  ~/.hermes/config.yaml \
+  ~/.hermes/memories/ \
+  ~/.hermes/skills/ \
+  --exclude logs --exclude tmp-backup --exclude node_modules \
+  2>&1 || echo "WARN: backup problems"
+$RESTIC forget --keep-last 5 --keep-daily 3 --prune 2>&1 || echo "WARN: forget problems"
+echo "[backup] finished $(date)"
+EOF
+chmod +x ~/hermes-devops-ai-environment/scripts/backup/restic-backup.sh
+```
+
+### Zuverlässige Remote-Script-Ausführung
+
+**FALSCH:** Komplexe Inline-Befehle mit Quotes über mehrere SSH-Hops.
+
+**RICHTIG:** Script als Datei transportieren:
 
 ```bash
-# File-based (avoids heredoc/quoting hell)
-cat /tmp/script.py | ssh hostinger \
-  "ssh -i /root/.ssh/id_macmini klaus@100.93.33.84 'python3 -'"
+# 1. Lokal → Hostinger
+scp /tmp/script.sh hostinger:/tmp/script.sh
+
+# 2. Hostinger → Mac Mini
+ssh hostinger "scp -i ~/.ssh/id_macmini -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null /tmp/script.sh \
+  klaus@100.93.33.84:/tmp/script.sh"
+
+# 3. Ausführen (mit expliziter Shell)
+ssh hostinger "ssh -i ~/.ssh/id_macmini -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null klaus@100.93.33.84 \
+  '/bin/zsh /tmp/script.sh'"
+```
+
+**Für AE8 (WSL2):**
+```bash
+# Schritt 1+2 identisch, Schritt 3:
+ssh hostinger "ssh -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null klausi@100.95.25.46 \
+  'bash /tmp/script.sh'"
 ```
 
 ---
@@ -322,8 +481,5 @@ The check script should verify: Docker engine, disk space, running containers, V
 
 | File | Purpose |
 |---|---|
-| `references/docker-vm-disk.md` | Docker Desktop VM sparse-file behaviour |
-| `references/compose-override-patterns.md` | Cloud-First compose patterns |
-| `references/macmini-bash-history-explosion.md` | Root-cause of 285 GB macOS history |
-| `references/vps-bash-history-explosion.md` | Root-cause of 38 GB Linux history |
-| `references/disk-analysis-tools.md` | `ncdu`, timeout-safe disk analysis |
+- `references/wsl2-tailscale-ssh-pitfalls.md` — WSL2: `permission denied`, sleep fix, IP changes, projects
+- `references/macmini-tailscale-ssh-pitfalls.md` — macOS: host-key failure, Homebrew PATH issue, projects, backup scripts
