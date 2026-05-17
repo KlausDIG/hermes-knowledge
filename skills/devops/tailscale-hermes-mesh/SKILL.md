@@ -40,11 +40,13 @@ tags: [tailscale, mesh, vps, ae8, mac-mini, sync, network]
 |-------|---------------|-----|--------|----------------|
 | **Hostinger VPS** | srv1482003 | 100.125.211.54 | ✅ Online | Aktiv |
 | **AE8** | ae8 | 100.64.108.109 | ❌ **Offline** | 12 Tage |
-| **Mac Mini** | mac-mini-von-klaus | 100.93.33.84 | ✅ Online | Direkt |
-| **Lokal** | klaus-gk50 | 100.69.151.91 | ✅ Online | Direkt |
-| **iPad** | ipad-pro-11-gen-3 | 100.104.106.119 | ⚠️ Unbekannt | - |
-| **linux-clawbot** | linux-clawbot-agent | 100.105.214.86 | ❌ Offline | 16 Tage |
-| **Anne M1** | anne-m1 | 100.118.194.66 | ❌ Offline | 14 Tage |
+| **AE8** | ae8 | `100.95.25.46` | ✅ **Online** (WSL2 Ubuntu 24.04) | Aktiv |
+| **Mac Mini** | mac-mini-von-klaus | `100.93.33.84` | ✅ Online | Direkt |
+| **iPad** | ipad-pro-11-gen-3 | `100.104.106.119` | ⚠️ Unbekannt | - |
+| **linux-clawbot** | linux-clawbot-agent | `100.105.214.86` | ❌ Offline | 16 Tage |
+| **Anne M1** | anne-m1 | `100.118.194.66` | ❌ Offline | 14 Tage |
+
+> **Hinweis zu AE8:** Die Tailscale-IP ist **nicht statisch** und kann sich bei Re-Authentifizierung ändern (z.B. von `100.64.108.109` → `100.95.25.46`). Verwende immer den Tailscale-Namen `ae8` statt der IP.
 
 ## Mac Mini — Docker-basierte Hermes/AI-Umgebung
 

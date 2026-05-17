@@ -1553,3 +1553,7 @@ error: Fehler beim Versenden einiger Referenzen nach 'https://github.com/KlausDI
 [2026-05-17 18:00:04] 🚀 Gepusht zu GitHub
 [2026-05-17 18:00:04] === ✅ Sync Abgeschlossen ===
 
+[2026-05-17 18:30:05] === 🔄 Hermes Knowledge Sync Start ===
+[2026-05-17 18:30:05] 📄 Skill: devops/tailscale-hermes-mesh/SKILL.md
+[2026-05-17 18:30:05] 📄 Skill: devops/ae8-wsl-bootstrap/SKILL.md
+[2026-05-17 18:30:06] ⏰ Cronjobs exportiert
