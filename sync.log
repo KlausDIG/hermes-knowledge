@@ -1433,3 +1433,5 @@ error: Fehler beim Versenden einiger Referenzen nach 'https://github.com/KlausDI
 error: Fehler beim Versenden einiger Referenzen nach 'https://github.com/KlausDIG/hermes-knowledge.git'
 [2026-05-17 10:00:03] === ✅ Sync Abgeschlossen ===
 
+[2026-05-17 10:30:00] === 🔄 Hermes Knowledge Sync Start ===
+[2026-05-17 10:30:01] ⏰ Cronjobs exportiert
