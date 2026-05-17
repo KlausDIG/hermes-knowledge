@@ -224,6 +224,47 @@ docker compose -f docker-compose.control.yml -f docker-compose.override.yml up -
 
 > **Wichtig:** Bei Timeout nie mehrere compose-Befehle gleichzeitig starten — das blockiert sich gegenseitig.
 
+---
+
+## SSH-Jump-Zugriff über Hostinger VPS auf Mac Mini
+
+Wenn der Hermes-Agent auf dem **Linux-Agent-Host** (Agent-Linux) arbeiten muss und Dateien auf den **Mac Mini** legen soll, ist der Weg: Agent-Linux → Hostinger VPS (Jump) → Mac Mini (Tailscale).
+
+### SSH-Config (für Linux-Agent)
+
+```
+# ~/.ssh/config
+Host hostinger
+  HostName 187.77.65.191
+  User root
+  IdentityFile ~/.ssh/id_ed25519
+  AddKeysToAgent yes
+
+Host macmini-tailscale
+  HostName 100.93.33.84
+  User klaus
+  StrictHostKeyChecking no
+  UserKnownHostsFile /dev/null
+  ProxyCommand ssh -W %h:%p hostinger
+```
+
+**Verbindungstest:**
+```bash
+ssh macmini-tailscale "whoami; uname -a; echo HOME=$HOME"
+```
+
+### Troubleshooting — Tailscale SSH vs Standard-SSH
+
+Was **nicht** auf Anhieb funktioniert (gesammelte Pitfalls):
+
+| Versuch | Symptom | Lösung |
+|---------|---------|--------|
+| `tailscale ssh klaus@mac-mini-von-klaus` | "No ED25519 host key is known" | `tailscale ssh` prüft Hostkeys gegen Tailscale Coordination Server — bei gespeicherten Offline-Hosts unzuverlässig |
+| `ssh -J hostinger klaus@100.93.33.84` (mit Standard-Key) | "Too many authentication failures" | Der Key auf der Agent-Linux-Maschine ist `agent@rechner.local`, muss auf dem Mac Mini in `~klaus/.ssh/authorized_keys` liegen |
+| SSH-Agent nicht gestartet | "Could not open a connection to your authentication agent" | `ssh-add -l` prüfen; Agent muss initialisiert werden |
+
+**Arbeitender Fallback:** ProxyCommand mit `StrictHostKeyChecking=no`, identischer SSH-Key, oder passende `authorized_keys` auf dem Mac Mini. Session-Protokoll siehe [references/mac-mini-ssh-jump-session.md](references/mac-mini-ssh-jump-session.md).
+
 ### Container-Stack nach Docker-Neustart wiederherstellen
 
 Sobald Docker Desktop läuft, startet es Container **NICHT automatisch** (nur wenn `restart: unless-stopped` konfiguriert ist). Prüfe:
