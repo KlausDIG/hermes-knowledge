@@ -66,6 +66,15 @@ ssh hostinger "scp -i ~/.ssh/id_macmini -o StrictHostKeyChecking=no -o UserKnown
 | SSH Quoting Pitfalls | [`references/ssh-quoting-escaping-pitfalls.md`](references/ssh-quoting-escaping-pitfalls.md) | Warum 3-hop inline SSH-Befehle immer scheitern und das File-based-Pattern |
 | run_addon Whitelist Module | [`templates/run_addon.py`](templates/run_addon.py) | Whitelist-basierte Shell-Ausführung für Hermes Gateway |
 | Platz-Audit | [`scripts/macmini-space-audit.sh`](scripts/macmini-space-audit.sh) | Vollständiges Space-Audit mit Focus auf Docker, Library, History |
+| Disk Cleanup Extended macOS | [`references/disk-cleanup-extended-macos.md`](references/disk-cleanup-extended-macos.md) | Erweiterte Cleanup-Routine: Autodesk, Fotos, Mail, Google Chrome/Earth, Telegram Desktop Caches |
+| Linux Host Disk Pressure | [`references/linux-host-disk-pressure.md`](references/linux-host-disk-pressure.md) | Wenn `du -sh` auf dem lokalen Linux-Host timeouted: schnelle Diagnose mit `find` + `ls` |
+
+## Related Skills
+
+| Skill | Verwendung |
+|---|---|
+| `mac-mini-telegram-remote-exec` | Telegram `/run` Befehle auf dem Mac Mini — direkt integriert mit diesem Access-Pattern |
+| `log-protection-fleet` | Fleet-weite History-Guards + Logrotate — vor und nach Platz-Cleanup deployen |
 
 ## Wichtige Pfade auf dem Mac Mini
 

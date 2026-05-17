@@ -217,6 +217,37 @@ echo 'export HISTSIZE=10000'      >> ~/.zshrc
 
 ## Schnellreferenz: Wenn Platte voll ist
 
+### Linux Host (lokal)
+
+**Problem:** `du -sh /home` timeouted bei 95% Plattenbelegung → Verzeichnis zu tief/groß für `du`.
+
+**Fix — Schnelldiagnose statt `du`:**
+```bash
+# Direkte Unterverzeichnisse via find (schneller als rekursives du)
+ls -laSh /home/klausd/ | head -20
+
+# Einzelne Top-Level Ordner mit timeout-protected du
+for d in /home/klausd/.config /home/klausd/.vscode /home/klausd/.linuxbrew \
+         /home/klausd/.rustup /home/klausd/.hermes /home/klausd/snap \
+         /home/klausd/bin /home/klausd/hermes-klausi-hp; do
+    timeout 15 du -shx "$d" 2>/dev/null || echo "TIMEOUT: $d"
+done | sort -rh
+
+# Große Dateien > 1 GB direkt finden
+find /home/klausd -maxdepth 3 -size +1G -exec ls -lhS {} + 2>/dev/null | head -20
+```
+
+**Beobachteter Fall (Mai 2026):**
+- `/home/klausd/.hermes` = 4,5 GB (521 Verzeichnisse, viele `.hermes/node_modules`)
+- `/home/klausd/.vscode` = 611 MB
+- `/home/klausd/.config` = 468 MB
+- `/home/klausd/.linuxbrew` = 1,3 GB
+- `/home/klausd/.rustup` = 1,4 GB
+
+Nicht `.bash_history` oder Docker — stattdessen Entwicklungs-Tools (Rustup, Linuxbrew, Node-Module in .hermes).
+
+### Mac Mini (macOS APFS)
+
 ```bash
 # 1. Top-Verdächtige finden
 sudo du -sh /var/log/* | sort -rh | head -10

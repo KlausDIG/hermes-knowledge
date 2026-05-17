@@ -4,7 +4,7 @@ description: |
   Telegram-basierte Remote-Ausführung von Shell-Befehlen auf dem Mac Mini
   über den Hermes Gateway /run Endpunkt. Ermöglicht direkte Host-Operationen
   (df, docker, ps, etc.) aus dem Telegram-Chat ohne SSH.
-version: 1.0.0
+version: 1.1.0
 category: devops
 requires: []
 author: KlausDIG
@@ -333,6 +333,31 @@ rm -rf ~/Library/Containers/com.docker.docker/Data/com.docker.driver.amd64-linux
 Danach Docker Desktop App neu starten.
 
 ## Monitoring & Health Checks
+
+### Session-Transcript: `/run` Endpunkt nicht final verifiziert (2026-05-17)
+
+**Status:** Gateway und Bot Container laufen, `/run` Handler syntaktisch korrekt (`py_compile` → APP_OK / ADDON_OK).
+**Blocker:** Mehrere SSH-Escaping-Versuche über 3-Hops (lokal → Hostinger → Mac Mini) scheiterten an Shell-Quoting. Kein sauberer HTTP-Test gegen den `/run` Endpunkt gelungen.
+
+**Empfohlene Verifikation (direkt auf Mac Mini):**
+```bash
+# Auf Mac Mini: Direkter Container-Test
+docker exec hermes-devops-ai-environment-control-gateway-1 \
+  python3 -c "
+import urllib.request, json
+req = urllib.request.Request(
+    'http://127.0.0.1:8092/run',
+    data=json.dumps({'cmd':'df -h'}).encode(),
+    headers={'Content-Type':'application/json'},
+    method='POST'
+)
+r = urllib.request.urlopen(req, timeout=10)
+print('STATUS:', r.status)
+print(r.read().decode()[:200])
+"
+```
+
+**See:** [`references/run-endpoint-debug-session.md`](references/run-endpoint-debug-session.md) für vollständiges Session-Transcript.
 
 ```bash
 # Gateway Health
