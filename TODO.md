@@ -1,6 +1,6 @@
 # Projekt-Status
 
-*Aktualisiert: 2026-05-17 21:30*
+*Aktualisiert: 2026-05-17 22:00*
 
 ## Offen
 - [ ] > ⚠️ **Pitfall — Docker Desktop macOS Host-Volume Sync Bug:** Bei Container-Crashloops oder schnelle
