@@ -1,8 +1,9 @@
 # Projekt-Status
 
-*Aktualisiert: 2026-05-17 08:00*
+*Aktualisiert: 2026-05-17 08:30*
 
 ## Offen
+- [ ] > ⚠️ **Pitfall — Docker Desktop macOS Host-Volume Sync Bug:** Bei Container-Crashloops oder schnelle
 - [ ] Nur Zeilen mit **TODO:/FIXME:/BUG:** **+ Action-Verb** (implement/fix/add/...) werden als echt gezäh
 - [ ] - **Extraktor-Log:** `~/.hermes/logs/todo-extractor.log`
 - [ ] TODO: Implement retry logic with exponential backoff
