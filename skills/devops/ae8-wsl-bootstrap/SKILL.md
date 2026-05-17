@@ -109,21 +109,22 @@ tailscale status
 
 ### Variante A: Tailscale SSH (empfohlen, kein Passwort nötig)
 
-Tailscale bringt einen eigenen SSH-Server — **kein openssh-server nötig**.
+### 4.2 Tailscale SSH (Optionale Variante)
 
-**Voraussetzung:** `--ssh` Flag bei `tailscale up` (siehe Schritt 2.4).
+Tailscale SSH hat unter WSL2 ein bekanntes ACL-Problem (`permission denied`).
+Nutze stattdessen **OpenSSH-Fallback** (Schritt 4.1 oben).
 
-**Verbindung von einem anderen Node:**
+Falls Tailscale SSH funktioniert:
 ```bash
-# Von Hostinger (oder Mac Mini, lokaler Host)
 tailscale ssh klausi@ae8
 ```
-→ Öffnet direkt eine SSH-Session über Tailscale.
 
-**Falls Tailscale SSH nicht funktioniert:**
+**Falls "permission denied":**
 - Prüfe mit `tailscale status` ob AE8 als **online** gilt
 - Prüfe mit `sudo systemctl status tailscaled` ob der Daemon läuft
-- Führe Schritt 2.4 erneut aus
+- Führe Schritt 2.4 erneut aus (force-reauth)
+
+> **Hinweis:** Die Tailscale-IP kann sich bei Re-Authentifizierung ändern. Die IP ist **nicht statisch** — verwende für OpenSSH den Tailscale-Namen `ae8` oder prüfe aktuelle IP mit `tailscale status`.
 
 ### Variante B: OpenSSH-Server (Fallback)
 
