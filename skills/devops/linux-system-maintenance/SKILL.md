@@ -332,6 +332,61 @@ sudo bash ~/bin/set-history-limits.sh
 | Cronjobs mit `bash -c` | Jeder Cron-Aufruf landet in der Historie |
 | Interaktive root-Sessions | Lange manuelle Sessions häufen Einträge an |
 
+## `.bash_history` Explosion auf macOS (Mac Mini: 285 GB)
+
+### Kontext
+Das `.bash_history`-Explosionsproblem betrifft nicht nur Linux-Server — bei intensiver Automatisierung auf macOS kann die Datei ebenfalls ins **Hundert-GB-Gebiet** wachsen. Realfall: Mac Mini mit macOS 25.3, `.bash_history` = **285 GB** (~57 % der gesamten 494 GB SSD).
+
+**Wichtig:** macOS nutzt standardmäßig zsh, aber viele Automatisierungs-Scripts starten explizit `bash` — daher existiert `~/.bash_history` parallel zu `~/.zsh_history`.
+
+### Schnellerfassung (Remote über SSH)
+```bash
+ssh <host> "du -sh ~/.bash_history  ~/.zsh_history"
+# Alarm: > 1 GB → Sofortmaßnahme
+```
+
+### Sofort-Fix (macOS, kein sudo nötig)
+```bash
+# History sofort leeren
+> ~/.bash_history
+rm -f ~/.bash_history.tmp
+
+# Limits für beide Shells setzen
+for rc in ~/.bashrc ~/.zshrc; do
+    [ -f "$rc" ] || continue
+    grep -q "HISTSIZE=" "$rc" && continue
+    echo -e "\n# Limitiere Shell-Historie (verhindert GB-Explosionen)" >> "$rc"
+    echo "export HISTSIZE=10000"      >> "$rc"
+    echo "export SAVEHIST=10000"      >> "$rc"
+    echo "export HISTFILESIZE=20000"  >> "$rc"
+done
+
+# Verifizierung
+ls -lh ~/.bash_history ~/.zsh_history
+grep HIST ~/.bashrc ~/.zshrc 2>/dev/null
+```
+
+**Erwartetes Ergebnis:** +285 GB frei → SSD von 97 % auf ~40 % Belegung.
+
+### Dauerhafte Prävention (macOS + Linux)
+Bei jeder neuen Automatisierungs-Session — Hermes erstellt Script, User führt aus:
+
+```bash
+cat > ~/bin/set-history-limits.sh << 'EOF'
+#!/bin/bash
+for rc in ~/.bashrc ~/.zshrc /root/.bashrc /etc/profile; do
+    [ -f "$rc" ] || continue
+    grep -q "HISTSIZE=" "$rc" && continue
+    echo -e "\n# Limitiere Shell-Historie (verhindert GB-Explosionen)" >> "$rc"
+    echo "export HISTSIZE=10000"      >> "$rc"
+    echo "export SAVEHIST=10000"      >> "$rc"
+    echo "export HISTFILESIZE=20000"  >> "$rc"
+    echo "✅ Limits in $rc gesetzt"
+done
+EOF
+bash ~/bin/set-history-limits.sh
+```
+
 ### Verifizierung nach Fix
 ```bash
 ssh hostinger "ls -lh /root/.bash_history"
@@ -340,7 +395,8 @@ ssh hostinger "grep HISTSIZE /root/.bashrc"
 # Sollte: HISTSIZE=1000, HISTFILESIZE=2000
 ```
 
-Siehe `references/vps-bash-history-explosion.md` für vollständiges Post-Mortem.
+Siehe `references/vps-bash-history-explosion.md` für vollständiges Linux-Post-Mortem.
+Siehe `references/macmini-bash-history-explosion.md` für vollständiges macOS-Post-Mortem.
 
 ## Automatisches Cleanup (Cronjob)
 ```bash
