@@ -61,7 +61,11 @@ ssh hostinger "scp -i ~/.ssh/id_macmini -o StrictHostKeyChecking=no -o UserKnown
 | Topic | Datei | Inhalt |
 |-------|-------|--------|
 | Docker VM Recovery | [`references/docker-vm-recovery.md`](references/docker-vm-recovery.md) | Docker Desktop nach Crash / VM-Löschung wiederherstellen, Factory Reset, Image-Pull-Timeouts |
-| Platz-Audit | [`scripts/macmini-space-audit.sh`](scripts/macmini-space-audit.sh) | vollständiges Space-Audit mit Focus auf Docker, Library, History |
+| Docker Compose Deadlock Fix | [`scripts/docker-compose-deadlock-fix.sh`](scripts/docker-compose-deadlock-fix.sh) | Fix-Script: Killt Docker-Prozesse, startet Desktop neu, wartet auf Daemon, startet Stack |
+| Container-Patching Guide | [`references/container-patching-guide.md`](references/container-patching-guide.md) | Wie man Python-Code in Containern über SSH-Hops patcht (Host-Volume vs docker cp) |
+| SSH Quoting Pitfalls | [`references/ssh-quoting-escaping-pitfalls.md`](references/ssh-quoting-escaping-pitfalls.md) | Warum 3-hop inline SSH-Befehle immer scheitern und das File-based-Pattern |
+| run_addon Whitelist Module | [`templates/run_addon.py`](templates/run_addon.py) | Whitelist-basierte Shell-Ausführung für Hermes Gateway |
+| Platz-Audit | [`scripts/macmini-space-audit.sh`](scripts/macmini-space-audit.sh) | Vollständiges Space-Audit mit Focus auf Docker, Library, History |
 
 ## Wichtige Pfade auf dem Mac Mini
 
