@@ -416,6 +416,18 @@ snap remove <name> --revision=<rev>  # Nur alte Revision
 
 ## Automatisches Cleanup (Cronjobs)
 
+### Täglicher System-Sync (daily-sync.py)
+
+Verbesserter Python-basierter System-Sync in `~/.hermes/scripts/daily-sync.py`:
+- **Timeout-sichere** Größenanalyse (Python statt `du` bei Timeouts)
+- **Bash-History-Monitoring** (automatisch kürzen bei > 50 MB)
+- **Ollama GPU-Backend-Alarm** (ROCm/CUDA bei Intel-iGPU)
+- **Snap-Revision-Warnung** (deaktivierte Revs anzeigen)
+- **Dotfiles bare-repo Größen-Check** (.cfg bei > 5 GB warnen)
+- **Home-Verzeichnis-Scan** (große Ordner auflisten)
+
+**Cron:** Täglich 09:00 via `daily-sync` (no-agent Script)
+
 ### Mehrstufiges Defense-System
 
 | Job | Script | Schedule | Funktion |
