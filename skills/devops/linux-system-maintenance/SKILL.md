@@ -339,6 +339,16 @@ Das `.bash_history`-Explosionsproblem betrifft nicht nur Linux-Server — bei in
 
 **Wichtig:** macOS nutzt standardmäßig zsh, aber viele Automatisierungs-Scripts starten explizit `bash` — daher existiert `~/.bash_history` parallel zu `~/.zsh_history`.
 
+**🚨 Root-Cause identifiziert (Session 2026-05-17):**
+Cronjob `sync-history-macmini.sh` enthielt den Bug:
+```bash
+cat ~/.bash_history ~/.zsh_history >> ~/.bash_history  # GEOMETRISCHE EXPLOSION
+```
+Diese Zeile fügt `.bash_history` **an sich selbst** an — jeden Tag. Nach 60 Tagen: 1,8 Mio Zeilen = 285 GB.
+`tail -2000` kam danach, aber `awk '!seen[$0]++'` bei 285 GB fror ein → `.bash_history.tmp` wurde nie erstellt.
+
+**Fix:** Self-Append eliminieren, Hard-Limits (10.000 Zeilen / 50 MB), crash-sicheres `set -euo pipefail`. Siehe `references/macmini-bash-history-explosion.md`.
+
 ### Schnellerfassung (Remote über SSH)
 ```bash
 ssh <host> "du -sh ~/.bash_history  ~/.zsh_history"

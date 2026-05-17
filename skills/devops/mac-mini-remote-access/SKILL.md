@@ -1,7 +1,7 @@
 ---
 name: mac-mini-remote-access
 title: Remote-Zugriff auf Mac Mini via Hostinger Jumphost
-version: 1.0.0
+version: 1.2.0
 author: KlausDIG
 description: SSH-Zugriff auf denMac Mini (Tailscale 100.93.33.84) über denHostinger VPS (187.77.65.191) als Proxy/Jumphost.
 tags: [ssh, mac-mini, hostinger, jumphost, tailscale, remote-access]
@@ -56,6 +56,13 @@ ssh hostinger "scp -i ~/.ssh/id_macmini -o StrictHostKeyChecking=no -o UserKnown
 | Host-Key Check | `no` (Tailscale/WireGuard Trust) |
 | Shell | `/bin/zsh` |
 
+## Node-spezifische Referenzen
+
+| Topic | Datei | Inhalt |
+|-------|-------|--------|
+| Docker VM Recovery | [`references/docker-vm-recovery.md`](references/docker-vm-recovery.md) | Docker Desktop nach Crash / VM-Löschung wiederherstellen, Factory Reset, Image-Pull-Timeouts |
+| Platz-Audit | [`scripts/macmini-space-audit.sh`](scripts/macmini-space-audit.sh) | vollständiges Space-Audit mit Focus auf Docker, Library, History |
+
 ## Wichtige Pfade auf dem Mac Mini
 
 ```
@@ -65,6 +72,8 @@ ssh hostinger "scp -i ~/.ssh/id_macmini -o StrictHostKeyChecking=no -o UserKnown
 ~/Library/Developer/Xcode/DerivedData              # Xcode Cache
 ~/Library/Caches                                   # App Caches
 ~/Pictures/Photos Library.photoslibrary           # Photos
+~/Automation/Scripts/sync-history-macmini.sh        # History-Sync (BUG v1.x, FIXED v2.2)
+~/hermes-devops-ai-environment                     # Docker Compose Stack
 ```
 
 ## Troubleshooting
@@ -102,6 +111,46 @@ ssh hostinger \
 ```
 
 > **Pitfall:** Mac Mini nutzt **zsh** als Default-Shell. Inline-`bash`-Befehle können unterschiedlich expandieren (Brace-Expansion, Globbing). Immer explizit `/bin/zsh script.sh` oder `bash script.sh` aufrufen.
+
+## Cross-Plattform Script Deploy (alle 3 Nodes)
+
+Wenn ein Script/Config auf **alle Systeme** deployt werden muss (local Host + Hostinger VPS + Mac Mini):
+
+| Ziel | Methode |
+|---|---|
+| Lokaler Host | Direkt (`write_file`, `scp`, lokale Shell) |
+| Hostinger VPS | `scp lokal hostinger:/tmp/` + `ssh hostinger "bash /tmp/…"` |
+| Mac Mini | **SCP-Kette:** Lokal → Hostinger → Mac Mini |
+
+```bash
+# === Einheitliches Pattern für alle 3 Nodes ===
+
+# 1. Lokal: Script erstellen
+cat > /tmp/protect-all.sh << 'DEPLOYEOF'
+#!/bin/zsh
+# History-Guard
+HIST="$HOME/.bash_history"
+[ -f "$HIST" ] && du -m "$HIST" | awk '$1>50 {print "WARN: " $1 "MB"}'
+DEPLOYEOF
+
+# 2a. Lokal deployen
+cp /tmp/protect-all.sh ~/.hermes/scripts/protect-all.sh
+
+# 2b. Hostinger deployen
+scp /tmp/protect-all.sh hostinger:/tmp/protect-all.sh
+ssh hostinger "chmod +x /tmp/protect-all.sh && bash /tmp/protect-all.sh"
+
+# 2c. Mac Mini deployen (via Hostinger Kette)
+scp /tmp/protect-all.sh hostinger:/tmp/protect-macmini.sh
+ssh hostinger "scp -i ~/.ssh/id_macmini -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null /tmp/protect-macmini.sh \
+  klaus@100.93.33.84:/tmp/protect-macmini.sh"
+ssh hostinger "ssh -i ~/.ssh/id_macmini -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null klaus@100.93.33.84 \
+  'chmod +x /tmp/protect-macmini.sh && /bin/zsh /tmp/protect-macmini.sh'"
+```
+
+> **Wichtig:** Bei zsh/macOS niemals komplexe Heredocs oder Inline-Pipes per SSH schicken — Scheitern am Quoting. Stattdessen Script per SCP-Kette als Datei transferieren und dann als Datei ausführen.
 
 ## Sicherheit
 

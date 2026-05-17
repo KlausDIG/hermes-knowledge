@@ -66,6 +66,39 @@ sed -i 's/#*PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_c
 systemctl restart sshd
 ```
 
+## Jumphost zu Mesh-Nodes (Tailscale)
+
+Der Hostinger VPS hat meist Direktverbindungen zu anderen Tailscale-Nodes. Nutze ihn als SSH-Jumphost, wenn der lokale Agent keinen Tailscale-Zugang hat.
+
+### Mac Mini (100.93.33.84)
+
+```bash
+# Direkt über Hostinger mit dediziertem Key (id_macmini)
+ssh hostinger "ssh -i ~/.ssh/id_macmini -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null klaus@100.93.33.84 'whoami'"
+
+# SCP-Kette (lokal → Hostinger → Mac Mini)
+scp file.txt hostinger:/tmp/file.txt
+ssh hostinger "scp -i ~/.ssh/id_macmini -o StrictHostKeyChecking=no /tmp/file.txt klaus@100.93.33.84:~/"
+```
+
+**Wichtig:** Der Mac Mini benötigt den Key `id_macmini` (nicht id_ed25519). Die Verbindung über Tailscale MagicDNS (`mac-mini-von-klaus.tail278a0a.ts.net`) funktioniert oft nicht wegen Host-Key-Check-Problemen – die Tailscale-IP `100.93.33.84` ist stabiler.
+
+### Weitere Mesh-Nodes
+
+| Node | Tailscale IP | User | Key auf Hostinger |
+|------|-------------|------|-------------------|
+| Mac Mini | `100.93.33.84` | `klaus` | `~/.ssh/id_macmini` |
+| AE8 | `100.64.108.109` | `klaus` | `~/.ssh/id_ae8` (falls vorhanden) |
+
+### Pitfalls
+
+| Problem | Lösung |
+|---------|--------|
+| `Host key verification failed` | `-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null` |
+| `Permission denied` | Richtigen Key prüfen (`id_macmini`, nicht `id_ed25519`) |
+| `tailscale ssh` funktioniert nicht | Nutze stattdessen `ssh -i id_macmini klaus@100.93.33.84` via Hostinger |
+| SCP über mehrere Hops | Zwei separate SCP-Befehle oder ProxyJump |
+
 ## Wartung
 
 | Befehl | Zweck |
