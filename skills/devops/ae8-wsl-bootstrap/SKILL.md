@@ -77,17 +77,26 @@ sudo systemctl enable tailscaled --now
 ```
 → Startet `tailscaled` als systemd-Service bei jedem WSL2-Start.
 
-### 2.4 Tailscale verbinden
+### 2.4 Tailscale verbinden (mit SSH-Feature)
 ```bash
 sudo tailscale up --ssh --accept-routes
 ```
-→ Verbindet AE8 mit dem Mesh, aktiviert **Tailscale SSH** (kein OpenSSH nötig!).
+→ Verbindet AE8 mit dem Mesh, aktiviert **Tailscale SSH**.
+
+**Falls "Access denied" Fehler:**
+```bash
+sudo tailscale up --ssh --accept-routes --force-reauth
+```
+
+**Wichtig:** Bei WSL2 entsteht oft ein iptables-Fehler (`nf_tables: unknown option`), der aber **kosmetisch** ist — Tailscale funktioniert trotzdem.
 
 ### 2.5 Verifizieren
 ```bash
 tailscale status
 ```
-→ Sollte `100.64.108.109 ae8` als **online** zeigen.
+→ Sollte `100.95.25.46 ae8` als **online** (mit `-` am Ende) zeigen.
+
+> **Hinweis:** Die Tailscale-IP kann sich bei Re-Authentifizierung ändern (vorher `100.64.108.109`, jetzt `100.95.25.46`). Die IP ist **nicht statisch** — verwende immer den Tailscale-Namen `ae8` statt der IP.
 
 ---
 
